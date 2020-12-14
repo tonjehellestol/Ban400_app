@@ -191,213 +191,6 @@ difference_jhd_cgov <- merge(JHD_df_full, Crossgovsources_df, by=c("date","count
 
 
 
-<<<<<<< HEAD
-
-
-
-#---------------------------------- UI ----------------------------------#
-#User interface - the users choices
-ui <- fluidPage( 
-  titlePanel(
-    img(src = "https://www.siv.no/PublishingImages/Nyheter/Praksisnytt/Koronavirus.png?RenditionID=3", height = "200px", width = "99.9%")
-  ), #collects image from specified webpage
-  #Source: https://shiny.rstudio.com/tutorial/written-tutorial/lesson2/
-  navbarPage("COVID-19 Statistics", #Titletab
-             tabPanel("Global", icon=icon("home"), #First tab
-                      sidebarPanel(
-                        helpText("Select", em("Cases"), "or", em("Deaths"), "and a country to examine.
-               
-               The data is continously updating."), #Help text with italic text for the options
-                        
-                        selectInput('Stat', 'Data:', c('Cases', 'Deaths')), #Select data type 
-                        selectInput('PlotType', 'Data Visualization:', c('Map', 'Graph')), #Select the data visualization
-                        
-                        #This panel will only show if the data visualization chosen is "Graph"
-                        conditionalPanel(
-                          condition = "input.PlotType == 'Graph'", 
-                          selectInput('Country', 'Country', countries, selected = countries[1]), #Select country 
-                          dateRangeInput("dates",
-                                         "Date range",
-                                         start = "2020-01-22", #start date of the dataset
-                                         end = as.character(Sys.Date())) #Ends at todays date by default
-                        )
-                      ),
-                      #Creates the space and size of the output 
-                      mainPanel(strong(
-                        plotlyOutput('plot',height = '500px'),
-                        verbatimTextOutput('text'),
-                        width = 5)
-                      ),
-                      
-                      hr(),
-                      
-                      #Textboxes below the mainplot
-                      #Inspiration from https://github.com/RiveraDaniel/Regression/blob/master/ui.R
-                      fluidRow(column(width=3),
-                               #column(width=1),
-                               column(br(),
-                                      strong(p("Total confirmed number of deaths:")), #Bold text
-                                      textOutput("death"), #Prints number of deaths globally/ for a chosen country
-                                      br(), #Space
-                                      width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
-                               column(widt=4),
-                               column(br(),
-                                      strong(p("Total confirmed cases:")), 
-                                      textOutput("TCC"), #Prints total confirmed cases globally/ for a chosen country
-                                      br(),
-                                      width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
-                               br(),
-                               column(widt=2),
-                               
-                               column(br(),
-                                      strong(p("Total reported number of tests:")), 
-                                      textOutput("ntests"), #Prints total reported number of tests globally/ for a chosen country
-                                      br(),
-                                      width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
-                      ),
-                      
-                      br(),
-                      br(),
-                      
-                      #A column for teststatus
-                      fluidRow(column(width=3),
-                               column(br(),
-                                      htmlOutput("tsglobal"), #Prints the appropriate teststatus 
-                                      width=9,style="background-color:lightyellow;border-radius: 10px",
-                               ),
-                               br(),
-                      ),
-                      
-                      br(),
-                      br(),
-                      
-             ),
-             
-             tabPanel("Norway", icon=icon("bar-chart-o"),
-                      sidebarPanel(
-                        helpText("Choose"),
-                        #selectInput('StatNorway', 'Data:', c("Confirmed","Deaths")), #c('Map', 'Graph')), #Select data type 
-                        selectInput('PlotTypeNorway', 'Data Visualization:', c('Top 3', 'Graph')),
-                        
-                        #will only show this panel if the data visualization chosen is "Graph"
-                        conditionalPanel(
-                          condition = "input.PlotTypeNorway == 'Graph'", 
-                          selectInput('Municipality', 'Municipality',unique( kommune), selected = 'Bergen'), 
-                          dateRangeInput("datesNor",
-                                         "Date range",
-                                         start = "2020-01-22", #start date of the dataset
-                                         end = as.character(Sys.Date())) #Ends at todays date by default
-                          
-                          
-                        )
-                      ),
-                      
-                      mainPanel(strong(
-                        plotlyOutput('PlotNor',height = '500px'),
-                        verbatimTextOutput('text2'),
-                        width = 5)
-                      ),
-                      
-                      
-                      hr(),
-                      
-                      fluidRow(column(width=3),
-                               #column(width=1),
-                               column(br(),
-                                      strong(p("Total confirmed cases:")), 
-                                      textOutput("casesnorway"),
-                                      br(),
-                                      width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
-                               column(widt=4),
-                               column(br(),
-                                      strong(p("Total confirmed cases the last 30 days:")), 
-                                      textOutput("ccmonth"),
-                                      br(),
-                                      width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
-                               br(),
-                               column(widt=2),
-                               
-                               column(br(),
-                                      strong(p("Total confirmed cases the last 7 days:")), 
-                                      textOutput("ccweek"),
-                                      br(),
-                                      width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
-                      ),
-                      br(),
-                      br(),
-                      
-                      fluidRow(column(width=3),
-                               column(br(),
-                                      htmlOutput("tsnorway"),
-                                      width=9,style="background-color:lightyellow;border-radius: 10px",
-                               ),
-                               
-                               br(),
-                      ),
-                      
-                      
-                      br(),
-                      br(),
-                      
-             ),
-             tabPanel("Diagnostics", icon=icon("chart-line"),
-                      sidebarPanel(
-                        helpText("Choose the testdata you want to examine."),
-                        selectInput('dataset', 'Data:', c('Global', 'Norway')),  
-                        
-                        
-                        
-                        conditionalPanel(
-                          condition = "input.dataset == 'Global'", 
-                          selectInput('countryDiagnostic', 'Country', countries, selected = countries[1]), 
-                          selectInput('statDiagnostic', 'Statistics', c("Cases","Deaths"), selected = countries[1])
-                          
-                        ),
-                        
-                        conditionalPanel(
-                          condition = "input.dataset == 'Norway'", 
-                          selectInput('MunicipalityDiagnostic', 'Municipality', kommune, selected = kommune[1])
-                          
-                        )),
-                      
-                      
-                      mainPanel(
-                        h3(p(strong('Diagnostics',style="color:salmon")),align="center"),
-                        column(htmlOutput("TextDiagnostic"),width = 12,style="border:1px solid black"),
-                        column(br(), plotOutput("plotDiagnostic"),width = 12),
-                      ),
-                      hr(),
-                      
-                      fluidRow(column(width=3),
-                               column(br(),
-                                      textOutput("noe?"),
-                                      width=9,style="background-color:white;border-radius: 10px",
-                               ),
-
-                               br(),
-                      ),
-                      
-                      
-                      br(),
-                      br(),
-                      
-             ),
-             
-             
-             tabPanel("About this site", icon=icon("arrow-right"),
-                      tags$div(
-                        tags$h4("Last update"),
-                        h6(paste0(as.character(Sys.Date()))),
-                        p("This site uses data for Norway retrived from", a(href="https://github.com/thohan88/covid19-nor-data", "https://github.com/thohan88/covid19-nor-data", target="_blank"), "and the built in data packages in R, covid19() and covid19.data(). The data is updated once daily, and numbers till yesterday is included in the data visualization."),
-                        
-                        
-                      )
-             )))
-
-
-
-=======
->>>>>>> 89f401a5beee31924cb812c3d000f5a7b548addb
 #---------------------------------- Functions ----------------------------------#
 
 ##########Tests#########
@@ -463,8 +256,8 @@ getDifference_datasets<- function(data,type,country_name_input){
     print("Finding number of confirmed deaths similarity in datasets!")
     
   }
-
-
+  
+  
   weekly_diff <- difference_jhd_cgov_1 %>%
     tq_transmute(select     = difference_from_Cgov,
                  mutate_fun = apply.weekly,
@@ -527,7 +320,7 @@ graph_dailyConfirmed <- function(df, country){
     font = interactive_font
   )
   
-
+  
   ## Turning graph_cases to an interactive graph
   interactive_plot <- ggplotly(graph_cases, tooltip = c("text"), layerData = 1) %>% 
     style(hoverlabel = interactive_label) %>% #sets layout for tooltip labels
@@ -601,25 +394,26 @@ plotTop3dailyCases <- function(df, title){
     filter(date >= Sys.Date()-8 & date <= Sys.Date()-1)%>% #Filters the dataset for the last week
     arrange(desc(daily_cases)) #Sorts the data
   
-  
-  aggdaily <- aggregate(x = tempdaily_df$daily_cases,
-                        by = list(tempdaily_df$country_name),
+  #Aggregating the data
+  aggdaily <- aggregate(x = tempdaily_df$daily_cases, #aggregated daily cases 
+                        by = list(tempdaily_df$country_name), #sorting by municipality
                         FUN = sum)
   
   
+  #Creating a vector for the aggregated daily cases by municipality 
+  top_3 <- as.vector(aggdaily[["Group.1"]]) #Group.1 is default when using the function aggregate. It is the columname for the municipalities
   
-  top_3 <- as.vector(aggdaily[["Group.1"]])
-  
-  
+  #Creating a dataset for aggregated daily cases for each municipality
   top3 <- aggdaily %>%
-    filter(Group.1 %in% top_3)%>%
-    rename(country_name= "Group.1")%>%
-    arrange(desc(x))%>%
-    head(3)
+    filter(Group.1 %in% top_3)%>% #filtering the data
+    rename(country_name= "Group.1")%>% #renaming to the original name
+    arrange(desc(x))%>% #sorts the data
+    head(3) #includes only the 3 municipalities with highest aggregated daily cases
   
+  #Creating a vector for the 3 municipalities with highest aggregated daily cases the last seven days
   top <- as.vector(top3[["country_name"]])
   
-  
+  #Creating a dataset for the 3 municipalities with highest aggregated daily cases the last seven days
   top3 <- tempdaily_df %>% 
     filter(country_name %in% top)
   
@@ -664,9 +458,9 @@ getGlobalDeaths<- function(df){
   
   map_data <- df %>% 
     filter(date == Sys.Date()-2) %>% 
-    mutate(casesPer100k = round(confirmed_deaths/population*100000,0),)%>% 
+    mutate(casesPer100k = round(confirmed_deaths/population*100000,0),)%>% #calculate and store cases per 100k
     select(ID, date, country_name, ID, casesPer100k) %>% 
-    mutate(hover = paste0(country_name, "\n", casesPer100k))
+    mutate(hover = paste0(country_name, "\n", casesPer100k))#hover for the map 
   
   return (map_data)
   
@@ -678,25 +472,25 @@ drawMap <- function(map_data, main_title, colorbar_title){
   
   
   map <- plot_ly(map_data, 
-                 type='choropleth', 
-                 locations=map_data$ID,
+                 type='choropleth', #map
+                 locations=map_data$ID, #country letters
                  z=map_data$casesPer100k, 
                  zmin=0,
                  zmax = max(map_data$casesPer100k),
                  colorscale = list(c(0, 0.1, 0.2,0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1), 
-                                   c(brewer.pal(11,'Spectral'))),
+                                   c(brewer.pal(11,'Spectral'))), #11 color groups to display the differences between countries
                  color = map_data$casesPer100k,
                  text = map_data$hover,
-                 hoverinfo = 'text') %>% 
+                 hoverinfo = 'text') %>% #info about which country and the number of cases
     colorbar(title = colorbar_title, len = 0.75) %>% 
-    add_annotations(
+    add_annotations(#title adjustments
       y=1.05, 
       x=0.5, 
       text= main_title, 
       showarrow=F,
       font=list(size=15)
     ) %>% 
-    config(displayModeBar = FALSE)
+    config(displayModeBar = FALSE) #hide displaybar
   
   
   
@@ -778,10 +572,9 @@ ui <- fluidPage(
                       
                       hr(),
                       
-
+                      #Rows below the mainpanel
                       #Inspiration from https://github.com/RiveraDaniel/Regression/blob/master/ui.R
                       fluidRow(column(width=3),
-                               #column(width=1),
                                column(br(),
                                       strong(p("Total confirmed number of deaths:")), #Bold text
                                       textOutput("death"), #Prints number of deaths globally/ for a chosen country
@@ -820,16 +613,16 @@ ui <- fluidPage(
                       
              ),
              
+             #Additional panel for Norway
              tabPanel("Norway", icon=icon("bar-chart-o"),
                       sidebarPanel(
                         helpText("Select either Top 3 or Graph to view data. Top 3 displays number of cases for the municipalities with the highest number of cases in the last week."),
-                        #selectInput('StatNorway', 'Data:', c("Confirmed","Deaths")), #c('Map', 'Graph')), #Select data type 
-                        selectInput('PlotTypeNorway', 'Data Visualization:', c('Top 3', 'Graph')),
+                        selectInput('PlotTypeNorway', 'Data Visualization:', c('Top 3', 'Graph')), #Select the data vizualisation. "Top 3" is default
                         
                         #will only show this panel if the data visualization chosen is "Graph"
                         conditionalPanel(
                           condition = "input.PlotTypeNorway == 'Graph'", 
-                          selectInput('Municipality', 'Municipality',unique( kommune), selected = 'Bergen'), 
+                          selectInput('Municipality', 'Municipality',unique( kommune), selected = 'Bergen'), #Select municipality. Bergen is default
                           dateRangeInput("datesNor",
                                          "Date range",
                                          start = "2020-01-22", #start date of the dataset
@@ -838,7 +631,7 @@ ui <- fluidPage(
                           
                         )
                       ),
-                      
+                      #Creates the space and size of the output
                       mainPanel(strong(
                         plotlyOutput('PlotNor',height = '500px'),
                         verbatimTextOutput('text2'),
@@ -846,19 +639,19 @@ ui <- fluidPage(
                       ),
                       
                       
-                      hr(),
+                      hr(), #fluidRow below mainpanel
                       
+                      #Columns/textboxes next to each other
                       fluidRow(column(width=3),
-                               #column(width=1),
                                column(br(),
                                       strong(p("Total confirmed cases:")), 
-                                      textOutput("casesnorway"),
+                                      textOutput("casesnorway"), #Prints total confirmed cases in Norway
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
                                column(widt=4),
                                column(br(),
                                       strong(p("Total confirmed cases the last 30 days:")), 
-                                      textOutput("ccmonth"),
+                                      textOutput("ccmonth"), #Prints total confirmed cases the last 30 days
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
                                br(),
@@ -866,16 +659,17 @@ ui <- fluidPage(
                                
                                column(br(),
                                       strong(p("Total confirmed cases the last 7 days:")), 
-                                      textOutput("ccweek"),
+                                      textOutput("ccweek"), #Prints total confirmed cases the last 7 days
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
                       ),
                       br(),
                       br(),
                       
+                      #columns for test status
                       fluidRow(column(width=3),
                                column(br(),
-                                      htmlOutput("tsnorway"),
+                                      htmlOutput("tsnorway"), #Prints the appropriate test status 
                                       width=9,style="background-color:lightyellow;border-radius: 10px",
                                ),
                                
@@ -887,37 +681,38 @@ ui <- fluidPage(
                       br(),
                       
              ),
+             #Additional panel for diagnostics
              tabPanel("Diagnostics", icon=icon("chart-line"),
                       sidebarPanel(
                         helpText("Choose the testdata you want to examine."),
-                        selectInput('dataset', 'Data:', c('Global', 'Norway')),  
+                        selectInput('dataset', 'Data:', c('Global', 'Norway')),  #Select data 
                         
                         
-                        
+                        #will only show if the data "Global" is chosen
                         conditionalPanel(
                           condition = "input.dataset == 'Global'", 
-                          selectInput('countryDiagnostic', 'Country', countries, selected = countries[1]), 
-                          selectInput('statDiagnostic', 'Statistics', c("Cases","Deaths"), selected = countries[1])
+                          selectInput('countryDiagnostic', 'Country', countries, selected = countries[1]), #Select country 
+                          selectInput('statDiagnostic', 'Statistics', c("Cases","Deaths"), selected = countries[1]) #Select statistics
                           
                         ),
-                        
+                        #will only show if the data "Norway" is chosen
                         conditionalPanel(
                           condition = "input.dataset == 'Norway'", 
-                          selectInput('MunicipalityDiagnostic', 'Municipality', kommune, selected = kommune[1])
+                          selectInput('MunicipalityDiagnostic', 'Municipality', kommune, selected = kommune[1]) #select municipality
                           
                         )),
                       
-                      
+                      #Creates the space and size of the output and a title
                       mainPanel(
                         h3(p(strong('Diagnostics',style="color:salmon")),align="center"),
                         column(htmlOutput("TextDiagnostic"),width = 12,style="border:1px solid black"),
                         column(br(), plotOutput("plotDiagnostic"),width = 12),
                       ),
                       hr(),
-                      
+                      #Column below the output 
                       fluidRow(column(width=3),
                                column(br(),
-                                      textOutput("noe?"),
+                                      textOutput("noe?"), #explanation of the test
                                       width=9,style="background-color:white;border-radius: 10px",
                                ),
                                
@@ -930,12 +725,12 @@ ui <- fluidPage(
                       
              ),
              
-             
+             #Additional panel for further information
              tabPanel("About this site", icon=icon("arrow-right"),
                       tags$div(
-                        tags$h4("Last update"),
-                        h6(paste0(as.character(Sys.Date()))),
-                        p("This site uses data for Norway retrived from", a(href="https://github.com/thohan88/covid19-nor-data", "https://github.com/thohan88/covid19-nor-data", target="_blank"), "and the built in data packages in R, covid19() and covid19.data(). The data is updated once daily, and numbers till yesterday is included in the data visualization."),
+                        tags$h4("Last update"), #Title
+                        h6(paste0(as.character(Sys.Date()))), #Pastes todays date 
+                        p("This site uses data for Norway retrived from", a(href="https://github.com/thohan88/covid19-nor-data", "https://github.com/thohan88/covid19-nor-data", target="_blank"), "and the built in data packages in R, covid19() and covid19.data(). The data is updated once daily, and numbers till yesterday is included in the data visualization."), #Pastes text and link to dataset
                         
                         
                       )
@@ -949,60 +744,61 @@ server <- function(input, output) {
   
   ######GLOBAL########
   
+  #retrives data depending on which country and date range the user choose
   data_graph = reactive({
     Crossgovsources_df %>% mutate(date = as.Date(date)) %>% 
       filter( country_name == input$Country, date >= input$dates[1] & date <=input$dates[2] ) 
   })
   
   
-  
+  #plots the users requested plot(graph or map) and case-type(confirmed cases or deaths)
   output$plot <- renderPlotly({
-    if(input$PlotType == 'Graph'){
-      data <- data_graph()
-      if (input$Stat == 'Deaths'){
+    if(input$PlotType == 'Graph'){ #draw a graph
+      data <- data_graph()#retrive relevant data
+      if (input$Stat == 'Deaths'){ #plot confirmed deaths of wanted country
         graph_dailyDeaths(data, input$Country)
-      }else{ #confirmed
+      }else{ #plot confirmed cases of wanted country
         graph_dailyConfirmed(data, input$Country)
-      }}else{#map
-        if (input$Stat == 'Deaths'){
+      }}else{# draw map
+        if (input$Stat == 'Deaths'){ #map confirmed deaths
           Crossgovsources_df %>% getGlobalDeaths() %>%
             drawMap( paste0("Confirmed number of deaths per 100.000 as of ", as.character(Sys.Date()-2)), "Number of deaths" )
-        }else{ #confirmed cases
+        }else{ #map confirmed cases
           Crossgovsources_df %>% getGlobalConfirmed() %>%
             drawMap( paste0("Confirmed cases per 100.000 as of ", as.character(Sys.Date()-2)), "Confirmed cases")
         }
       }
   })
   
-  #Outfor for the boxes below the graph/map
-  #Bruk renderText istedet hvis det skal v??re if funksjon e.l., for renderPrint kan man feks skrive summary(totaldeaths)
-  #Denne linken kan sjekkes ut https://github.com/RiveraDaniel/Regression/blob/master/server.R
+  ##Output for the boxes below the graph/map
   
-  
+  #number of deaths
   output$death <- renderText({
-    if (input$PlotType == 'Graph'){
+    if (input$PlotType == 'Graph'){ #number of deaths for the given country
       totalDeaths(data_graph())
       
-    }else{
+    }else{ #total of deaths related to covid in the world
       totalDeaths(Crossgovsources_df)
     }
     
   }) 
   
-  
+  #display number of confirmed cases
   output$TCC <- renderText({
-    if (input$PlotType == 'Graph'){
+    if (input$PlotType == 'Graph'){ #number of cases for the given country
       totalConfirmed(data_graph())
       
-    }else{
-      totalConfirmed(Crossgovsources_df)
+    }else{#total cases of covid19 in the world
+      totalConfirmed(Crossgovsources_df) 
     }
   })
+  
+  #display the number of tested reported
   output$ntests <- renderText({
-    if (input$PlotType == 'Graph'){
+    if (input$PlotType == 'Graph'){ #number of test reported for the given country
       totalTested(data_graph())
       
-    }else{
+    }else{ #total number of tests reported in the world
       totalTested(Crossgovsources_df)
     }
     
@@ -1013,86 +809,103 @@ server <- function(input, output) {
   ######Norway########
   
   
-  #Retriving data
+  #Retriving data depending on the date range and the municipality choosen by the user
   data_graphNorway = reactive({
     norway %>% mutate(date = as.Date(date)) %>% 
       filter(country_name == input$Municipality , date >= input$datesNor[1] & date <=input$datesNor[2] )
   })
   
   
-  #Plot
+  #Plot confirmed cases
+  #Graph of a municipality or top 3 dpending on the users input
   output$PlotNor <- renderPlotly({
     
     if(input$PlotTypeNorway == 'Graph'){
       data <- data_graphNorway()
-      graph_dailyConfirmed(data,input$Municipality)
-    }else{
-      plotTop3dailyCases(norway, "Three municipalities with the highest number of cases in the last week")
+      graph_dailyConfirmed(data,input$Municipality) #plot daily confirmed of the given municipality
+    }else{#plot top 3 municipalities with the highest number of cases the last week
+      plotTop3dailyCases(norway, "Three municipalities with the highest number of cases in the last week") 
     }
     
   })
   
+  ##Output for boxes below the graph
   
+  #display number of cases
   output$casesnorway <- renderText({
-    if (input$PlotTypeNorway == 'Graph'){
-      totalConfirmed(data_graphNorway())
+    if (input$PlotTypeNorway == 'Graph'){ #number of cases for the given municipality
+      totalConfirmed(data_graphNorway()) 
       
     }else{
-      totalConfirmed(norway)
+      totalConfirmed(norway)#total confirmed cases in norway
     }})
+  
+  #display number of cases the last month
   output$ccmonth <- renderText({
     if (input$PlotTypeNorway == 'Graph'){
-      casesmonth(data_graphNorway())
-    }else{
-      casesmonth(norway)
+      casesmonth(data_graphNorway()) #for the given municipality
+    }else{ 
+      casesmonth(norway)  #for Norway in total
     }})
+  
+  #display number of cases the last week
   output$ccweek <- renderText({
-    if(input$PlotTypeNorway == 'Graph'){
-      casesweek(data_graphNorway())
+    if(input$PlotTypeNorway == 'Graph'){ 
+      casesweek(data_graphNorway())#the given municipality
     }else{
-      casesweek(norway)
+      casesweek(norway)#for Norway in total
       
     }})
   
   
   
   #Short output for diagnostics
+  
+  
   output$tsnorway <- renderText({
     if(input$PlotTypeNorway == 'Graph'){
-      HTML(paste(accumulative_test(norway, input$Municipality, column = "cases", short = TRUE)))
-    }else{
-      HTML(paste("Chose  'graph' and a municipality to examine the data in more details."))
+      HTML(paste(accumulative_test(norway, input$Municipality, column = "cases", short = TRUE))) #short test result of the accumulative test
+    }else{#top3
+      HTML(paste("Chose  'graph' and a municipality to examine the data in more details."))#info
     }
   }) 
   
   
   output$tsglobal <- renderText({
     if(input$PlotType == 'Graph'){
-      HTML(paste(accumulative_test(Crossgovsources_df, input$Country, tolower(input$Stat), short = TRUE)))
-    }else{
+      HTML(paste(accumulative_test(Crossgovsources_df, input$Country, tolower(input$Stat), short = TRUE))) #short test result of the accumulative test
+    }else{ #map
       HTML(paste("Chose 'graph' and a country to examine the data in more details."))
     }
   })
   
   
-  #Output for the diagnostics tab
+  ##Output for the diagnostics tab
+  
+  #output for the accumulative test
   output$TextDiagnostic <- renderText({
-    if(input$dataset == "Global"){
-      HTML(paste(accumulative_test(Crossgovsources_df,input$countryDiagnostic, tolower(input$statDiagnostic))))
+    if(input$dataset == "Global"){ 
+      HTML(paste(accumulative_test(Crossgovsources_df,input$countryDiagnostic, tolower(input$statDiagnostic))))#test result for wanted country
     }
-    else if(input$dataset == "Norway"){
-      HTML(paste(accumulative_test(norway, input$MunicipalityDiagnostic)))
+    else if(input$dataset == "Norway"){ 
+      HTML(paste(accumulative_test(norway, input$MunicipalityDiagnostic)))#test result for wanted municipality
     }
   })
   
+  #Output for the difference test
+  #Displays a plot showing in what extent the two global datasets are reporting the same results
   output$plotDiagnostic <- renderPlot({
     if(input$dataset == "Global"){
       getDifference_datasets(difference_jhd_cgov,input$statDiagnostic, input$countryDiagnostic)
       
     }})
-
+  
+  
   
   
 }
+
+
+shinyApp(ui = ui, server = server)
 
 shinyApp(ui = ui, server = server)
