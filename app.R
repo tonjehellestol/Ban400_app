@@ -1,6 +1,6 @@
 #----------------------------------------------------------------------
-  #BAN400 - Introduction to R
-  #September 2020
+#BAN400 - Introduction to R
+#September 2020
 #----------------------------------------------------------------------
 #References:
 #Covid19.analytics package:
@@ -292,8 +292,8 @@ ui <- fluidPage(
                         verbatimTextOutput('text2'),
                         width = 5)
                       ),
-                     
-                     
+                      
+                      
                       hr(),
                       
                       fluidRow(column(width=3),
@@ -407,8 +407,8 @@ accumulative_test <- function(df, group, column="cases", short = FALSE){
   } else if (n!=0 & short == TRUE){
     result <- paste("***Accumulative Test FAILED**<br/>There have been ", n, " instances where accumulative values have decreased in ", group,
                     "<br/>To view full diagnostic, go to the diagnostic page and chose current input", sep="")
-
-    }else {
+    
+  }else {
     result <- paste("***Accumulative Test FAILED***<br/>There have been", n, "instances where accumulative values have decreased in", group,
                     "<br/>This might be due to correction of quantity registered, although this is not certain.",
                     "<br/>The dates this happened are postet below:<br/>",sep = " ")
@@ -489,7 +489,7 @@ graph_dailyConfirmed <- function(df, country){
   
   
   temp_df <- df 
-    #filter(country_name == country)
+  #filter(country_name == country)
   temp_df$average <- ma(temp_df$daily_cases, 7)
   
   
@@ -669,7 +669,7 @@ getGlobalDeaths<- function(df){
 
 
 drawMap <- function(map_data, main_title, colorbar_title){
-
+  
   
   map <- plot_ly(map_data, 
                  type='choropleth', 
@@ -691,7 +691,7 @@ drawMap <- function(map_data, main_title, colorbar_title){
       font=list(size=15)
     ) %>% 
     config(displayModeBar = FALSE)
-   
+  
   
   
   return(map)
@@ -788,7 +788,7 @@ server <- function(input, output) {
       totalDeaths(Crossgovsources_df)
     }
     
-   }) 
+  }) 
   
   
   output$TCC <- renderText({
@@ -798,7 +798,7 @@ server <- function(input, output) {
     }else{
       totalConfirmed(Crossgovsources_df)
     }
-    })
+  })
   output$ntests <- renderText({
     if (input$PlotType == 'Graph'){
       totalTested(data_graph())
@@ -807,7 +807,7 @@ server <- function(input, output) {
       totalTested(Crossgovsources_df)
     }
     
-    }) 
+  }) 
   
   
   ######Norway########
@@ -819,56 +819,56 @@ server <- function(input, output) {
       filter(country_name == input$Municipality , date >= input$datesNor[1] & date <=input$datesNor[2] )
   })
   
- 
+  
   #Plot
-   output$PlotNor <- renderPlotly({
-
+  output$PlotNor <- renderPlotly({
+    
     if(input$PlotTypeNorway == 'Graph'){
       data <- data_graphNorway()
       graph_dailyConfirmed(data,input$Municipality)
     }else{
       plotTop3dailyCases(norway, "The 3 municipalities in Norway with the highest number of cases the last week\n")
     }
-
-    })
-
+    
+  })
   
-   output$casesnorway <- renderText({
-     if (input$PlotTypeNorway == 'Graph'){
-       totalConfirmed(data_graphNorway())
-       
-     }else{
-       totalConfirmed(norway)
-     }})
-   output$ccmonth <- renderText({
-     if (input$PlotTypeNorway == 'Graph'){
-        casesmonth(data_graphNorway())
-       }else{
-         casesmonth(norway)
-       }})
-   output$ccweek <- renderText({
-     if(input$PlotTypeNorway == 'Graph'){
-       casesweek(data_graphNorway())
-     }else{
-       casesweek(norway)
-       
-     }})
-   
- 
-
+  
+  output$casesnorway <- renderText({
+    if (input$PlotTypeNorway == 'Graph'){
+      totalConfirmed(data_graphNorway())
+      
+    }else{
+      totalConfirmed(norway)
+    }})
+  output$ccmonth <- renderText({
+    if (input$PlotTypeNorway == 'Graph'){
+      casesmonth(data_graphNorway())
+    }else{
+      casesmonth(norway)
+    }})
+  output$ccweek <- renderText({
+    if(input$PlotTypeNorway == 'Graph'){
+      casesweek(data_graphNorway())
+    }else{
+      casesweek(norway)
+      
+    }})
+  
+  
+  
   #Short output for diagnostics
   output$tsnorway <- renderText({
     if(input$PlotTypeNorway == 'Graph'){
-    HTML(paste(accumulative_test(norway, input$Municipality, column = "cases", short = TRUE)))
+      HTML(paste(accumulative_test(norway, input$Municipality, column = "cases", short = TRUE)))
     }else{
       HTML(paste("Chose  'graph' and a municipality to examine the data in more details."))
     }
-    }) 
+  }) 
   
   
   output$tsglobal <- renderText({
     if(input$PlotType == 'Graph'){
-    HTML(paste(accumulative_test(Crossgovsources_df, input$Country, tolower(input$Stat), short = TRUE)))
+      HTML(paste(accumulative_test(Crossgovsources_df, input$Country, tolower(input$Stat), short = TRUE)))
     }else{
       HTML(paste("Chose 'graph' and a country to examine the data in more details."))
     }
@@ -890,12 +890,9 @@ server <- function(input, output) {
       getDifference_datasets(difference_jhd_cgov,input$statDiagnostic, input$countryDiagnostic)
       
     }})
-    
- 
+
   
   
 }
 
 shinyApp(ui = ui, server = server)
-
-
