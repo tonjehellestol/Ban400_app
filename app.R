@@ -161,7 +161,7 @@ ui <- fluidPage(
                                column(widt=2),
                                
                                column(br(),
-                                      strong(p("Last week:")), 
+                                      strong(p("Reported number of tests:")), 
                                       textOutput("lastweek"),
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
@@ -543,20 +543,21 @@ drawMap <- function(map_data, main_title, colorbar_title){
 #Returns total number of deaths in the dataset
 totalDeaths <-function(df){
   df <- df %>% filter(date == Sys.Date() -2) 
-  sum(df$confirmed_deaths)
+  number(sum(df$confirmed_deaths),
+         big.mark = " ")
 }
 
 #Returns total number of confirmed cases in the dataset
 totalConfirmed <- function(df){
   
   df <- df %>% filter(date == Sys.Date() -2) 
-  sum(df$confirmed_cases)
+  number(sum(df$confirmed_cases), big.mark = " ")
 }
 
 #Return total number of tests in the dataset
 totalTested <- function(df){
   df <- df %>% filter(date == Sys.Date() -2) 
-  sum(df$tests)
+  number(sum(df$tests), big.mark = " ")
 }
 
 
@@ -605,9 +606,36 @@ server <- function(input, output) {
   #Outfor for the boxes below the graph/map
   #Bruk renderText istedet hvis det skal v??re if funksjon e.l., for renderPrint kan man feks skrive summary(totaldeaths)
   #Denne linken kan sjekkes ut https://github.com/RiveraDaniel/Regression/blob/master/server.R
-  output$death <- renderPrint({deaths(data_graph())}) #legg inn fnavn p?? unksjon for antall d??de
-  output$TCC <- renderPrint({p("10")})
-  output$lastweek <- renderPrint({p("hundre")}) 
+  
+  
+  output$death <- renderText({
+    if (input$PlotType == 'Graph'){
+      totalDeaths(data_graph())
+      
+    }else{
+      totalDeaths(Crossgovsources_df)
+    }
+    
+   }) #legg inn fnavn p?? unksjon for antall d??de
+  
+  
+  output$TCC <- renderText({
+    if (input$PlotType == 'Graph'){
+      totalConfirmed(data_graph())
+      
+    }else{
+      totalConfirmed(Crossgovsources_df)
+    }
+    })
+  output$lastweek <- renderText({
+    if (input$PlotType == 'Graph'){
+      totalTested(data_graph())
+      
+    }else{
+      totalTested(Crossgovsources_df)
+    }
+    
+    }) 
   
   
   ##NORWAY
@@ -635,25 +663,7 @@ server <- function(input, output) {
   #})
   
   
-  # tabPanel("Norway", icon=icon("bar-chart-o"),
-  #          sidebarPanel(
-  #            helpText("Choose"),
-  #            #selectInput('StatNorway', 'Data:', c("Confirmed","Deaths")), #c('Map', 'Graph')), #Select data type 
-  #            selectInput('PlotTypeNorway', 'Data Visualization:', c('Top 10', 'Graph')),
-  #            
-  #            #will only show this panel if the data visualization chosen is "Graph"
-  #            #denne funker ikke f??r den er lagt inn i serveren, den m?? hete noe annet enn Graph, ellers responderer den p?? global fanen
-  #            conditionalPanel(
-  #              condition = "input.PlotTypeNorway == 'Graph'", 
-  #              selectInput('Municipality', 'Municipality', kommune, selected = kommune[1]), 
-  #              dateRangeInput("dates",
-  #                             "Date range",
-  #                             start = "2020-01-22", #start date of the dataset
-  #                             end = as.character(Sys.Date())) #Ends at todays date by default
-  #              
-  # 
-  # 
-  
+
  
   
   output$deathnor <- renderPrint({}) #legg inn funksjon for antall d??de
