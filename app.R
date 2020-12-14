@@ -1015,7 +1015,7 @@ server <- function(input, output) {
   
   output$testInfo <- renderText({
     if((input$dataset == "Global")){
-    HTML(paste("* Difference in datasets * <br/> <br/> 
+      HTML(paste("* Difference in datasets * <br/> <br/> 
                 The Covid19-dataset is compared to JHD- John Hopkins, in a weekly average cumulative sum of deaths/cases. <br/> 
               *100% score indicates that the two datasets are reporting the same numbers biweekly. <br/> 
               *50% score indicates that Covid19-dataset reports  100% more cases/deaths than John Hopkins have reported. <br/> 
@@ -1025,16 +1025,16 @@ server <- function(input, output) {
               All missing confirmed values in the dataset has been replace by the closest previous value if any exist, and 
               given the value 0 otherwise. 
               "
-    
-              
-    ))
+                 
+                 
+      ))
     }else{
-        HTML(paste("*Data cleaning* <br/> <br/> 
+      HTML(paste("*Data cleaning* <br/> <br/> 
               All missing confirmed values in the dataset has been replace by the closest previous value if any exist, and 
               given the value 0 otherwise.<br/><br/> "
-              ))
+      ))
     }
-
+    
   })
   
   
