@@ -536,17 +536,38 @@ drawMap <- function(map_data, main_title, colorbar_title){
 }
 
 
-###Small functions
+###Stats for boxes 
 
-deaths <- function(df){
-  numb <- df$confirmed_deaths[df$date== Sys.Date()-2]
-  return(numb)
+
+
+#Returns total number of deaths in the dataset
+totalDeaths <-function(df){
+  df <- df %>% filter(date == Sys.Date() -2) 
+  sum(df$confirmed_deaths)
+}
+
+#Returns total number of confirmed cases in the dataset
+totalConfirmed <- function(df){
+  
+  df <- df %>% filter(date == Sys.Date() -2) 
+  sum(df$confirmed_cases)
+}
+
+#Return total number of tests in the dataset
+totalTested <- function(df){
+  df <- df %>% filter(date == Sys.Date() -2) 
+  sum(df$tests)
 }
 
 
 
 
-#Crossgovsources_df %>% filter(country_name=='Argentina') %>%  deaths()
+
+
+
+
+
+
 
 
 
@@ -635,7 +656,7 @@ server <- function(input, output) {
   
  
   
-  output$deathnor <- renderPrint({deaths}) #legg inn funksjon for antall d??de
+  output$deathnor <- renderPrint({}) #legg inn funksjon for antall d??de
   output$TCCnor <- renderPrint({p("10")}) 
   output$lastweeknor <- renderPrint({p("100")}) 
   
