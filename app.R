@@ -69,7 +69,10 @@ Crossgovsources_df <- covid19() %>%
   ungroup() 
 
 #Adding column "negative_daily_cases" and "negative_daily_deaths", holds the value 1 if daily_cases/daily_deaths are negative, 0 otherwise
-Crossgovsources_df <- Crossgovsources_df %>% group_by(country_name) %>% mutate(negative_daily_cases = (ifelse( daily_cases < 0, 1, 0)), negativ_daily_deaths = (ifelse( daily_deaths < 0, 1, 0))) %>% ungroup()
+#Columns are used in the accumulative_test function
+Crossgovsources_df <- Crossgovsources_df %>% group_by(country_name) %>%
+  mutate(negative_daily_cases = (ifelse( daily_cases < 0, 1, 0)), negative_daily_deaths = (ifelse( daily_deaths < 0, 1, 0))) %>% 
+  ungroup()
 
 #Correction: changing negative daily_deaths and negative daily_cases to 0
 Crossgovsources_df <- Crossgovsources_df %>% 
@@ -97,9 +100,19 @@ norway <- norwaydata %>%
   summarise_at(vars(confirmed_cases),             
                list(confirmed_cases = sum)) %>% 
   ungroup() %>% 
-  group_by("country_name") %>% 
-  mutate(daily_cases= c(0,diff(confirmed_cases)))
+  group_by(country_name) %>% 
+  mutate(daily_cases= c(0,diff(confirmed_cases))) %>% 
+  ungroup()
 
+#Adding column "negative_daily_cases" and "negative_daily_deaths", holds the value 1 if daily_cases/daily_deaths are negative, 0 otherwise
+#Columns are used in the accumulative_test function
+norway <- norway %>% group_by(country_name) %>%
+  mutate(negative_daily_cases = (ifelse( daily_cases < 0, 1, 0))) %>%
+  ungroup()
+
+#Correction: changing negative daily_deaths and negative daily_cases to 0
+norway <- norway %>% 
+  mutate(daily_cases = replace(daily_cases , daily_cases < 0, 0))
 
 
 #Creating a dataset for the statistics and one for the municipalities 
@@ -118,11 +131,11 @@ ui <- fluidPage(
   navbarPage("COVID-19 Statistics",
              tabPanel("Global", icon=icon("home"),
                       sidebarPanel(
-                        helpText("Select", em("Confirmed"), "or", em("Deaths"), "and a country to examine.
+                        helpText("Select", em("Cases"), "or", em("Deaths"), "and a country to examine.
                
                The data is continously updating."), #Help text with italic text for the options
                         
-                        selectInput('Stat', 'Data:', c('Confirmed', 'Deaths')), #Select data type 
+                        selectInput('Stat', 'Data:', c('Cases', 'Deaths')), #Select data type 
                         selectInput('PlotType', 'Data Visualization:', c('Map', 'Graph')), #Select the data visualization
                         
                         #will only show this panel if the data visualization chosen is "Graph"
@@ -173,7 +186,7 @@ ui <- fluidPage(
                       fluidRow(column(width=3),
                                column(br(),
                                       p("Test status:    ",style="color:black"),
-                                      textOutput("tsglobal"),
+                                      htmlOutput("tsglobal"),
                                       width=9,style="background-color:lightyellow;border-radius: 10px",
                                ),
                                br(),
@@ -195,7 +208,7 @@ ui <- fluidPage(
                         conditionalPanel(
                           condition = "input.PlotTypeNorway == 'Graph'", 
                           selectInput('Municipality', 'Municipality',unique( kommune), selected = 'Bergen'), 
-                          dateRangeInput("dates",
+                          dateRangeInput("datesNor",
                                          "Date range",
                                          start = "2020-01-22", #start date of the dataset
                                          end = as.character(Sys.Date())) #Ends at todays date by default
@@ -241,7 +254,7 @@ ui <- fluidPage(
                       fluidRow(column(width=3),
                                column(br(),
                                       p("Test status:    ",style="color:black"),
-                                      textOutput("tsnorway"),
+                                      htmlOutput("tsnorway"),
                                       width=9,style="background-color:lightyellow;border-radius: 10px",
                                ),
                                
@@ -257,33 +270,26 @@ ui <- fluidPage(
                       sidebarPanel(
                         helpText("Choose the testdata you want to examine."),
                         selectInput('dataset', 'Data:', c('Global', 'Norway')),  
-                        selectInput('PlotTypeDiagnostics', 'Data Visualization:', c('Summary', 'Graph')),
+                        
                         
                         
                         conditionalPanel(
                           condition = "input.dataset == 'Global'", 
                           selectInput('countryDiagnostic', 'Country', countries, selected = countries[1]), 
-                          selectInput('statDiagnostic', 'Statistics', c("Confirmed","Deaths"), selected = countries[1])
+                          selectInput('statDiagnostic', 'Statistics', c("Cases","Deaths"), selected = countries[1])
                           
                         ),
                         
                         conditionalPanel(
                           condition = "input.dataset == 'Norway'", 
-                          selectInput('Municipality', 'Municipality', kommune, selected = kommune[1])
+                          selectInput('MunicipalityDiagnostic', 'Municipality', kommune, selected = kommune[1])
                           
-                        ),
-                        
-                        dateRangeInput("dates",
-                                       "Date range",
-                                       start = "2020-01-22", #start date of the dataset
-                                       end = as.character(Sys.Date())) #Ends at todays date by default
-                        
-                        
-                      ),
+                        )),
+                      
                       
                       mainPanel(
                         h3(p(strong('Diagnostics',style="color:salmon")),align="center"),
-                        column(plotlyOutput("Navn p?? testplot"),width = 12,style="border:1px solid black"),
+                        column(htmlOutput("TextDiagnostic"),width = 12,style="border:1px solid black"),
                       ),
                       hr(),
                       
@@ -319,7 +325,41 @@ ui <- fluidPage(
 
 #---------------------------------- Functions ----------------------------------#
 
+##########Tests#########
+
+
+
+####Testing if there exist a decrease in accumulative cases for a given country/municipality
+####The function returns a string with the test results
+accumulative_test <- function(df, group, column="cases", short = FALSE){
+  temp_df <- df %>% filter(country_name == group, df[paste0("negative_daily_",as.character(column))] == 1) #creates a temporary dataset with municipalities and binary column for cases/deaths
+  n <- nrow(temp_df) #counts number of rows equal to 1 (i.e accumulated value has decreased)
+  if(n == 0){
+    result <- paste("***Accumulative Test PASSED***<br/>There have been 0 instances where accumulative values have decreased in ", group)
+  } else if (n!=0 & short == TRUE){
+    result <- paste("***Accumulative Test FAILED**<br/>There have been ", n, " instances where accumulative values have decreased in ", group,
+                    "<br/>To view full diagnostic, go to the diagnostic page and chose current input", sep="")
+
+    }else {
+    result <- paste("***Accumulative Test FAILED***<br/>There have been", n, "instances where accumulative values have decreased in", group,
+                    "<br/>This might be due to correction of quantity registered, although this is not certain.",
+                    "<br/>The dates this happened are postet below:<br/>",sep = " ")
+    for(row in 1:nrow(temp_df)){ #Iterates through data frame adding date and values to string for output
+      temp_df2 <- df %>% 
+        filter(date == temp_df$date[row] - 1, country_name == group)
+      result <- paste(result, "<br/>Date: ", temp_df$date[row], " ",str_to_title(column),": ", temp_df$confirmed_cases[row], 
+                      "  ---- ",str_to_title(column) ," previous day: ",temp_df2$confirmed_cases[1], " ---- Difference: ", 
+                      (temp_df[row, paste0("confirmed_",as.character(column))] - temp_df2[1, paste0("confirmed_", as.character(column))]), sep="")
+    }
+    
+  }
+  return(result)
+}
+
+
+
 ##########Graphs#########
+
 
 
 graph_dailyConfirmed <- function(df, country){
@@ -653,7 +693,7 @@ server <- function(input, output) {
   #Retriving data
   data_graphNorway = reactive({
     norway %>% mutate(date = as.Date(date)) %>% 
-      filter(country_name == input$Municipality , date >= input$dates[1] & date <=input$dates[2] )
+      filter(country_name == input$Municipality , date >= input$datesNor[1] & date <=input$datesNor[2] )
   })
   
  
@@ -691,12 +731,29 @@ server <- function(input, output) {
        
      }})
    
+ 
+
+  #Short output for diagnostics
+  output$tsnorway <- renderText({
+    HTML(paste(accumulative_test(norway, input$Municipality, column = "cases", short = TRUE)))
+    }) 
+  
+  
+  output$tsglobal <- renderText({
+    HTML(paste(accumulative_test(Crossgovsources_df, input$Country, tolower(input$Stat), short = TRUE)))
+  })
+  
+  
   #Output for the diagnostics tab
-  #det g??r ikke an ?? ha samme output for begge faner, da funker ikke conditionalpanel
-  output$tsnorway <- renderPrint({p("The difference between the data is ... farge her?",
-                                    br(), "To examine the full diagnostics of the data, go to the diagnostics tab")}) 
-  output$tsglobal <- renderPrint({p("The difference between the data is ... farge her?",
-                                    br(), "To examine the full diagnostics of the data, go to the diagnostics tab")}) 
+  output$TextDiagnostic <- renderText({
+    if(input$dataset == "Global"){
+      HTML(paste(accumulative_test(Crossgovsources_df,input$countryDiagnostic, tolower(input$statDiagnostic))))
+    }
+    else if(input$dataset == "Norway"){
+      HTML(paste(accumulative_test(norway, input$MunicipalityDiagnostic)))
+    }
+  })
+  
   
 }
 
