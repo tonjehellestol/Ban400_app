@@ -185,7 +185,6 @@ ui <- fluidPage(
                       
                       fluidRow(column(width=3),
                                column(br(),
-                                      p("Test status:    ",style="color:black"),
                                       htmlOutput("tsglobal"),
                                       width=9,style="background-color:lightyellow;border-radius: 10px",
                                ),
@@ -253,7 +252,6 @@ ui <- fluidPage(
                       
                       fluidRow(column(width=3),
                                column(br(),
-                                      p("Test status:    ",style="color:black"),
                                       htmlOutput("tsnorway"),
                                       width=9,style="background-color:lightyellow;border-radius: 10px",
                                ),
@@ -735,12 +733,20 @@ server <- function(input, output) {
 
   #Short output for diagnostics
   output$tsnorway <- renderText({
+    if(input$PlotTypeNorway == 'Graph'){
     HTML(paste(accumulative_test(norway, input$Municipality, column = "cases", short = TRUE)))
+    }else{
+      HTML(paste("Chose  'graph' and a municipality to examine the data in more details."))
+    }
     }) 
   
   
   output$tsglobal <- renderText({
+    if(input$PlotType == 'Graph'){
     HTML(paste(accumulative_test(Crossgovsources_df, input$Country, tolower(input$Stat), short = TRUE)))
+    }else{
+      HTML(paste("Chose 'graph' and a country to examine the data in more details."))
+    }
   })
   
   
