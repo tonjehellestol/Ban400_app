@@ -164,8 +164,9 @@ JHD_df_full$country_name[which(JHD_df_full$country_name  == "Burma")] <- "Myanma
 JHD_df_full$country_name[which(JHD_df_full$country_name  == "Taiwan*")] <- "Taiwan"
 JHD_df_full$country_name[which(JHD_df_full$country_name  == "West Bank and Gaza")] <- "Palestine"
 JHD_df_full$country_name[which(JHD_df_full$country_name  == "Eswatini")] <- "Swaziland"
-Crossgovsources_df$country_name[which(Crossgovsources_df$country_name  == "Congo")] <- "Congo (Brazzaville)"
-Crossgovsources_df$country_name[which(Crossgovsources_df$country_name  == "Congo, the Democratic Republic of the")] <- "Congo (Kinshasa)"
+JHD_df_full$country_name[which(JHD_df_full$country_name  == "Congo (Brazzaville)")] <- "Congo"
+JHD_df_full$country_name[which(JHD_df_full$country_name  == "Congo (Kinshasa)")] <- "Congo, the Democratic Republic of the"
+
 
 #Changed the names of the following to get correct entry;
 #crossgov - Swaziland = Eswatini in JHD
@@ -712,8 +713,8 @@ ui <- fluidPage(
                       #Column below the output 
                       fluidRow(column(width=3),
                                column(br(),
-                                      textOutput("noe?"), #explanation of the test
-                                      width=9,style="background-color:white;border-radius: 10px",
+                                      htmlOutput("testInfo"), #explanation of the test
+                                      width=9,style="background-color:lightyellow;border-radius: 10px",
                                ),
                                
                                br(),
@@ -900,15 +901,35 @@ server <- function(input, output) {
       
     }})
   
+  output$testInfo <- renderText({
+    if((input$dataset == "Global")){
+    HTML(paste("* Difference in datasets * <br/> <br/> 
+                The Covid19-dataset is compared to JHD- John Hopkins, in a weekly average cumulative sum of deaths/cases. <br/> 
+              *100% score indicates that the two datasets are reporting the same numbers biweekly. <br/> 
+              *50% score indicates that Covid19-dataset reports  100% more cases/deaths than John Hopkins have reported. <br/> 
+              *150% score indicates that John Hopkins reports 50% more cases/deaths than what the Covid19-dataset reports. <br/> <br/> <br/> 
+                 
+              *Data cleaning* <br/> <br/> 
+              All missing confirmed values in the dataset has been replace by the closest previous value if any exist, and 
+              given the value 0 otherwise. 
+              "
+    
+              
+    ))
+    }else{
+        HTML(paste("*Data cleaning* <br/> <br/> 
+              All missing confirmed values in the dataset has been replace by the closest previous value if any exist, and 
+              given the value 0 otherwise.<br/><br/> "
+              ))
+    }
+
+  })
+  
   
   
   
 }
 
 
-<<<<<<< HEAD
-shinyApp(ui = ui, server = server)
 
-=======
->>>>>>> 2205127565f3159e94fa7b51c61877097c69afd9
 shinyApp(ui = ui, server = server)
