@@ -802,6 +802,7 @@ server <- function(input, output) {
   }) 
   
   
+  
   ######Norway########
   
   
@@ -819,7 +820,7 @@ server <- function(input, output) {
       data <- data_graphNorway()
       graph_dailyConfirmed(data,input$Municipality)
     }else{
-      plotTop3dailyCases(norway, "Top 3 municipalities with the highest number of cases in the last week")
+      plotTop3dailyCases(norway, "Three municipalities with the highest number of cases in the last week")
     }
     
   })
