@@ -1,12 +1,16 @@
 #----------------------------------------------------------------------
 #BAN400 - Introduction to R
 #December 2020
+#Candidates: 71, XX, XX and XX
 #----------------------------------------------------------------------
 #References:
 #Covid19.analytics package:
 #https://www.rdocumentation.org/packages/covid19.analytics/versions/1.0
 #Shiny:
 #https://shiny.rstudio.com/tutorial/
+#Covid19 package:
+#https://www.rdocumentation.org/packages/COVID19/versions/2.3.1
+
 
 
 
@@ -17,7 +21,7 @@
 list.of.packages <- c("covid19.analytics", "magrittr", "tidyr", "ggplot2",
                       "shiny", "shinyWidgets", "data.table", "scales", "wpp2019",
                       "RColorBrewer", "rworldmap", "dplyr", "plotly","COVID19","ggthemes",
-                      "gganimate", "forecast", "zoo", "stringr", "lubridate", "tidyquant")
+                      "gganimate", "forecast", "zoo", "stringr", "lubridate", "tidyquant", "docstring")
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
@@ -45,6 +49,7 @@ library(zoo)
 library(stringr)
 library(lubridate)
 library(tidyquant)
+library(docstring)
 
 
 
@@ -130,6 +135,15 @@ kommune <- norway %>% select("country_name")
 #The source of the data is John Hopkins University and is to be compared to the 
 #data provided by the COVID19 package
 JHD_df_cleaning <- function(df, case_type){
+  #'Covid-19 John Hopkins Data cleaning
+  #'
+  #'Cleans the date.frame as produced by covid19.analytics package
+  #'
+  #'@param df the dataset to clean
+  #'@param case_type the type of John Hopkins data to clean (confirmed cases/deaths)
+  
+  
+  
   df %>% 
     group_by(Country.Region) %>% 
     select(-"Province.State", - "Lat", - "Long") %>% 
@@ -201,6 +215,18 @@ difference_jhd_cgov <- merge(JHD_df_full, Crossgovsources_df, by=c("date","count
 ####Testing if there exist a decrease in accumulative cases for a given country/municipality
 ####The function returns a string with the test results
 accumulative_test <- function(df, group, column="cases", short = FALSE){ #parameter short defines if a short testresult should be returned
+  #'Accumulative test for covid19 datasets
+  #'
+  #'Tests if accumulative values for confirmed cases or deaths are ever increasing and not decreasing
+  #'Output comes in form of a string, due to integration with shiny linebreaks are written with HTML encoding (<br/>)
+  #'
+  #'@param df the dataset to test
+  #'@param group Which country or municipality to test
+  #'@param column Type of data to test (cases or deaths)
+  #'@param short Boolean, set to True if a short test result is desired, False for detailed result
+  
+  
+  
   temp_df <- df %>% filter(country_name == group, df[paste0("negative_daily_",as.character(column))] == 1) #creates a temporary dataset with municipalities and binary column for cases/deaths
   n <- nrow(temp_df) #counts number of rows equal to 1 (i.e 1 if accumulated value has decreased)
   if(n == 0){ #Short test result if tess is passed (There is no need for a detailed result if passed)
@@ -286,6 +312,12 @@ getDifference_datasets<- function(data,type,country_name_input){
 
 
 graph_dailyConfirmed <- function(df, country){
+  #'Graph Daily Confirmed Cases
+  #'
+  #'Graphs daily confirmed cases for a given country/municipality
+  #'
+  #'@param df The dataset to graph from
+  #'@param country Which country or municipality to be displayed
   
   
   temp_df <- df 
@@ -336,6 +368,13 @@ graph_dailyConfirmed <- function(df, country){
 
 
 graph_dailyDeaths <- function(df, country){
+  
+  #'Graph Daily Confirmed Deaths
+  #'
+  #'Graphs daily confirmed deaths for a given country/municipality
+  #'
+  #'@param df The dataset to graph from
+  #'@param country Which country or municipality to be displayed
   
   
   temp_df <- df # Creates a temporary dataframe
@@ -391,6 +430,14 @@ graph_dailyDeaths <- function(df, country){
 
 
 plotTop3dailyCases <- function(df, title){
+  #'Graph top 3 municipalities in Norway
+  #'
+  #'Graphs the top 3 municipalities that has had the higher number of confirmed cases in the last week
+  #'
+  #'@param df The dataset of covid19 data for Norway
+  #'@param title Title of the plot
+  
+  
   tempdaily_df <- df %>% 
     filter(date >= Sys.Date()-8 & date <= Sys.Date()-1)%>% #Filters the dataset for the last week
     arrange(desc(daily_cases)) #Sorts the data
@@ -443,6 +490,14 @@ plotTop3dailyCases <- function(df, title){
 
 #Retrieved total number of confirmed cases globally
 getGlobalConfirmed<- function(df){
+  #'Calculate global confirmed cases
+  #'
+  #'calculates global confirmed cases per 100 000 capita
+  #'
+  #'@param df The dataset to calculate from
+  #'
+  
+  
   
   map_data <- df %>% 
     filter(date == Sys.Date()-2 ) %>% 
@@ -456,6 +511,13 @@ getGlobalConfirmed<- function(df){
 
 #Retrieves total number of deaths globally
 getGlobalDeaths<- function(df){
+  #'Calculate global confirmed deaths
+  #'
+  #'calculates global confirmed deaths per 100 000 capita
+  #'
+  #'@param df The dataset to calculate from
+  #'
+  
   
   map_data <- df %>% 
     filter(date == Sys.Date()-2) %>% 
@@ -470,7 +532,13 @@ getGlobalDeaths<- function(df){
 
 #Function to draw the interactive map 
 drawMap <- function(map_data, main_title, colorbar_title){
-  
+  #'Color "heat-map" for covid19 data globally
+  #'
+  #'Creates an interactive heat map displaying covid19 cases and death
+  #'
+  #'@param map_data The dataset to plot from
+  #'@param main_title Title for the plot
+  #'@param colorbar_title Title of the colorbar
   
   map <- plot_ly(map_data, 
                  type='choropleth', #map
@@ -506,6 +574,14 @@ drawMap <- function(map_data, main_title, colorbar_title){
 
 #Returns total number of deaths in the dataset
 totalDeaths <-function(df){
+  #'Total Covid Deaths
+  #'
+  #'Calculates the total number of deaths from covid19 dataset
+  #'for all countries or municipalities
+  #'
+  #'@param df The dataset to calculate from
+  
+  
   df <- df %>% filter(date == Sys.Date() -2) 
   number(sum(df$confirmed_deaths),
          big.mark = " ")
@@ -513,6 +589,13 @@ totalDeaths <-function(df){
 
 #Returns total number of confirmed cases in the dataset
 totalConfirmed <- function(df){
+  #'Total Covid Confirmed Cases
+  #'
+  #'Calculates the total number of confirmed cases from covid19 dataset
+  #'for all countries or municipalities
+  #'
+  #'@param df The dataset to calculate from
+  
   
   df <- df %>% filter(date == Sys.Date() -2) 
   number(sum(df$confirmed_cases), big.mark = " ")
@@ -520,17 +603,41 @@ totalConfirmed <- function(df){
 
 #Return total number of tests in the dataset
 totalTested <- function(df){
+  #'Total Covid Tests Conducted
+  #'
+  #'Calculates the total number of covid 19 tests conducted accross all countries
+  #'
+  #'@param df The dataset to calculate from
+  
+  
   df <- df %>% filter(date == Sys.Date() -2) 
   number(sum(df$tests), big.mark = " ")
 }
 
 
 casesmonth <- function(df){
+  #'Total Number of Cases Last Month in Norway
+  #'
+  #'Calculates the total number of covid 19 cases confirmed in Norway in the past 30 days (month)
+  #'for a given municipality or total (depending on selected input in the app)
+  #'
+  #'@param df The dataset to calculate from
+  
+  
   numb <- df$daily_cases[df$date >= Sys.Date()-31 & df$date <= Sys.Date()-1]
   return(number(sum(numb), big.mark = " "))
 }
 
 casesweek <- function(df){
+  #'Total Number of Cases Last week in Norway
+  #'
+  #'Calculates the total number of covid 19 cases confirmed in Norway in the past 7 days (week)
+  #'for a given municipality or total (depending on selected input in the app)
+  #'
+  #'@param df The dataset to calculate from
+  
+  
+  
   numb <- df$daily_cases[df$date >= Sys.Date()-8 & df$date <= Sys.Date()-1]
   return(number(sum(numb), big.mark = " "))
 }
@@ -730,8 +837,13 @@ ui <- fluidPage(
              tabPanel("About this site", icon=icon("arrow-right"),
                       tags$div(
                         tags$h4("Last update"), #Title
-                        h6(paste0(as.character(Sys.Date()))), #Pastes todays date 
-                        p("This site uses data for Norway retrived from", a(href="https://github.com/thohan88/covid19-nor-data", "https://github.com/thohan88/covid19-nor-data", target="_blank"), "and the built in data packages in R, covid19() and covid19.data(). The data is updated once daily, and numbers till yesterday is included in the data visualization."), #Pastes text and link to dataset
+                        h6(paste0("2020-12-14")), #Pastes todays date 
+                        p("This site uses data for Norway retrived from", a(href="https://github.com/thohan88/covid19-nor-data", "https://github.com/thohan88/covid19-nor-data", target="_blank"), 
+                          "and the built in data packages in R, covid19() and covid19.analytics(). The data is updated once daily, and numbers till yesterday is included in the data visualization. 
+                          As of 2020-12-14, all the datasets are still updated daily and are expected to do in the foreseeable future. The data used for a global visualization of the covid19 situation is retrieved from the covid19() package. 
+                          Credit goes to the work put out by Guidotti and Ardia (2020). Some comparing of datasets have been conducted, specifically between the dataset developed in the covid19 package and that of John Hopkins (covid19.analytics package). 
+                          Since the dataset developed by Guidotti and Ardia (2020) uses cross governmental sources at national, regional and city level, we thought it interesting to compare this with a more global dataset that many international media outlets use (i.e John Hopkins).")
+                        , #Pastes text and link to dataset
                         
                         
                       )
