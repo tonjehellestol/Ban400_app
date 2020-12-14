@@ -1,6 +1,6 @@
 #----------------------------------------------------------------------
-  #BAN400 - Introduction to R
-  #September 2020
+#BAN400 - Introduction to R
+#September 2020
 #----------------------------------------------------------------------
 #References:
 #Covid19.analytics package:
@@ -69,7 +69,9 @@ Crossgovsources_df <- covid19() %>%
   ungroup() 
 
 #Adding column "negative_daily_cases" and "negative_daily_deaths", holds the value 1 if daily_cases/daily_deaths are negative, 0 otherwise
-Crossgovsources_df <- Crossgovsources_df %>% group_by(country_name) %>% mutate(negative_daily_cases = (ifelse( daily_cases < 0, 1, 0)), negativ_daily_deaths = (ifelse( daily_deaths < 0, 1, 0))) %>% ungroup()
+Crossgovsources_df <- Crossgovsources_df %>% group_by(country_name) %>%
+  mutate(negative_daily_cases = (ifelse( daily_cases < 0, 1, 0)), negative_daily_deaths = (ifelse( daily_deaths < 0, 1, 0))) %>%
+  ungroup()
 
 #Correction: changing negative daily_deaths and negative daily_cases to 0
 Crossgovsources_df <- Crossgovsources_df %>% 
@@ -97,15 +99,26 @@ norway <- norwaydata %>%
   summarise_at(vars(confirmed_cases),             
                list(confirmed_cases = sum)) %>% 
   ungroup() %>% 
-  group_by("country_name") %>% 
-  mutate(daily_cases= c(0,diff(confirmed_cases)))
+  group_by(country_name) %>%
+  mutate(daily_cases= c(0,diff(confirmed_cases))) %>% 
+  ungroup()
 
 
+
+
+
+#Adding column "negative_daily_cases" and "negative_daily_deaths", holds the value 1 if daily_cases/daily_deaths are negative, 0 otherwise
+norway <- norway %>% group_by(country_name) %>%
+  mutate(negative_daily_cases = (ifelse( daily_cases < 0, 1, 0))) %>%
+  ungroup()
+
+#Correction: changing negative daily_deaths and negative daily_cases to 0
+norway <- norway %>% 
+  mutate(daily_cases = replace(daily_cases , daily_cases < 0, 0))
 
 #Creating a dataset for the statistics and one for the municipalities 
 
 kommune <- norway %>% select("country_name")
-
 
 
 
@@ -161,7 +174,7 @@ ui <- fluidPage(
                                column(widt=2),
                                
                                column(br(),
-                                      strong(p("Reported number of tests:")), 
+                                      strong(p("Last week:")), 
                                       textOutput("lastweek"),
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
@@ -209,8 +222,8 @@ ui <- fluidPage(
                         verbatimTextOutput('text2'),
                         width = 5)
                       ),
-                     
-                     
+                      
+                      
                       hr(),
                       
                       fluidRow(column(width=3),
@@ -319,6 +332,37 @@ ui <- fluidPage(
 
 #---------------------------------- Functions ----------------------------------#
 
+
+##########Tests#########
+
+
+
+####Testing if there exist a decrease in accumulative cases for a given country/municipality
+####The function returns a string with the test results
+accumulative_test <- function(df, group, column="cases"){
+  temp_df <- df %>% filter(country_name == group, df[paste0("negative_daily_",as.character(column))] == 1) #creates a temporary dataset with municipalities and binary column for cases/deaths
+  n <- nrow(temp_df) #counts number of rows equal to 1 (i.e accumulated value has decreased)
+  if(n == 0){
+    result <- paste("***Accumulative Test PASSED***\nThere have been 0 instances where accumulative values have decreased in ", group)
+  }
+  else{
+    result <- paste("***Accumulative Test FAILED***\nThere have been", n, "instances where accumulative values have decreased in", group,
+                    "\nThis might be due to correction of quantity registered, although this is not certain.",
+                    "\nThe dates this happened are postet below:\n",sep = " ")
+    for(row in 1:nrow(temp_df)){ #Iterates through data frame adding date and values to string for output
+      temp_df2 <- df %>% 
+        filter(date == temp_df$date[row] - 1, country_name == group)
+      result <- paste(result, "\nDate: ", temp_df$date[row], " ",str_to_title(column),": ", temp_df$confirmed_cases[row], 
+                      "  ---- ",str_to_title(column) ," previous day: ",temp_df2$confirmed_cases[1], " ---- Difference: ", 
+                      (temp_df[row, paste0("confirmed_",as.character(column))] - temp_df2[1, paste0("confirmed_", as.character(column))]), sep="")
+    }
+    
+  }
+  return(result)
+}
+
+
+
 ##########Graphs#########
 
 
@@ -326,7 +370,7 @@ graph_dailyConfirmed <- function(df, country){
   
   
   temp_df <- df 
-    #filter(country_name == country)
+  #filter(country_name == country)
   temp_df$average <- ma(temp_df$daily_cases, 7)
   
   
@@ -506,7 +550,7 @@ getGlobalDeaths<- function(df){
 
 
 drawMap <- function(map_data, main_title, colorbar_title){
-
+  
   
   map <- plot_ly(map_data, 
                  type='choropleth', 
@@ -528,7 +572,7 @@ drawMap <- function(map_data, main_title, colorbar_title){
       font=list(size=15)
     ) %>% 
     config(displayModeBar = FALSE)
-   
+  
   
   
   return(map)
@@ -536,32 +580,17 @@ drawMap <- function(map_data, main_title, colorbar_title){
 }
 
 
-###Stats for boxes 
+###Small functions
 
-
-
-#Returns total number of deaths in the dataset
-totalDeaths <-function(df){
-  df <- df %>% filter(date == Sys.Date() -2) 
-  number(sum(df$confirmed_deaths),
-         big.mark = " ")
-}
-
-#Returns total number of confirmed cases in the dataset
-totalConfirmed <- function(df){
-  
-  df <- df %>% filter(date == Sys.Date() -2) 
-  number(sum(df$confirmed_cases), big.mark = " ")
-}
-
-#Return total number of tests in the dataset
-totalTested <- function(df){
-  df <- df %>% filter(date == Sys.Date() -2) 
-  number(sum(df$tests), big.mark = " ")
+deaths <- function(df){
+  numb <- df$confirmed_deaths[df$date== Sys.Date()-2]
+  return(numb)
 }
 
 
 
+
+#Crossgovsources_df %>% filter(country_name=='Argentina') %>%  deaths()
 
 
 
@@ -599,36 +628,9 @@ server <- function(input, output) {
   #Outfor for the boxes below the graph/map
   #Bruk renderText istedet hvis det skal v??re if funksjon e.l., for renderPrint kan man feks skrive summary(totaldeaths)
   #Denne linken kan sjekkes ut https://github.com/RiveraDaniel/Regression/blob/master/server.R
-  
-  
-  output$death <- renderText({
-    if (input$PlotType == 'Graph'){
-      totalDeaths(data_graph())
-      
-    }else{
-      totalDeaths(Crossgovsources_df)
-    }
-    
-   }) #legg inn fnavn p?? unksjon for antall d??de
-  
-  
-  output$TCC <- renderText({
-    if (input$PlotType == 'Graph'){
-      totalConfirmed(data_graph())
-      
-    }else{
-      totalConfirmed(Crossgovsources_df)
-    }
-    })
-  output$lastweek <- renderText({
-    if (input$PlotType == 'Graph'){
-      totalTested(data_graph())
-      
-    }else{
-      totalTested(Crossgovsources_df)
-    }
-    
-    }) 
+  output$death <- renderPrint({deaths(data_graph())}) #legg inn fnavn p?? unksjon for antall d??de
+  output$TCC <- renderPrint({p("10")})
+  output$lastweek <- renderPrint({p("hundre")}) 
   
   
   ##NORWAY
@@ -638,28 +640,46 @@ server <- function(input, output) {
       filter(country_name == input$Municipality , date >= input$dates[1] & date <=input$dates[2] )
   })
   
- 
   
-   output$PlotNor <- renderPlotly({
-
+  
+  output$PlotNor <- renderPlotly({
+    
     if(input$PlotTypeNorway == 'Graph'){
       data <- data_graphNorway()
       graph_dailyConfirmed(data,input$Municipality)
     }else{
       plotTop3dailyCases(norway, "The 3 municipalities in Norway with the highest number of cases the last week\n")
     }
-
-    })
-
     
-    
+  })
+  
+  
+  
   #})
   
   
-
- 
+  # tabPanel("Norway", icon=icon("bar-chart-o"),
+  #          sidebarPanel(
+  #            helpText("Choose"),
+  #            #selectInput('StatNorway', 'Data:', c("Confirmed","Deaths")), #c('Map', 'Graph')), #Select data type 
+  #            selectInput('PlotTypeNorway', 'Data Visualization:', c('Top 10', 'Graph')),
+  #            
+  #            #will only show this panel if the data visualization chosen is "Graph"
+  #            #denne funker ikke f??r den er lagt inn i serveren, den m?? hete noe annet enn Graph, ellers responderer den p?? global fanen
+  #            conditionalPanel(
+  #              condition = "input.PlotTypeNorway == 'Graph'", 
+  #              selectInput('Municipality', 'Municipality', kommune, selected = kommune[1]), 
+  #              dateRangeInput("dates",
+  #                             "Date range",
+  #                             start = "2020-01-22", #start date of the dataset
+  #                             end = as.character(Sys.Date())) #Ends at todays date by default
+  #              
+  # 
+  # 
   
-  output$deathnor <- renderPrint({}) #legg inn funksjon for antall d??de
+  
+  
+  output$deathnor <- renderPrint({deaths}) #legg inn funksjon for antall d??de
   output$TCCnor <- renderPrint({p("10")}) 
   output$lastweeknor <- renderPrint({p("100")}) 
   
