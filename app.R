@@ -88,13 +88,14 @@ norway <- norwaydata %>%
                list(cases = sum)) %>% 
   ungroup() %>% 
   group_by(kommune_name) %>% 
+  rename("country_name" = kommune_name) %>% 
   mutate(daily_cases= c(0,diff(cases)))
 
 
 
 #Creating a dataset for the statistics and one for the municipalities 
 
-kommune <- norway %>% select("kommune_name")
+kommune <- norway %>% select("country_name")
 
 
 
@@ -178,13 +179,13 @@ ui <- fluidPage(
                       sidebarPanel(
                         helpText("Choose"),
                         #selectInput('StatNorway', 'Data:', c("Confirmed","Deaths")), #c('Map', 'Graph')), #Select data type 
-                        selectInput('PlotTypeNorway', 'Data Visualization:', c('Top 10', 'Graph')),
+                        selectInput('PlotTypeNorway', 'Data Visualization:', c('Top 3', 'Graph')),
                         
                         #will only show this panel if the data visualization chosen is "Graph"
                         #denne funker ikke f??r den er lagt inn i serveren, den m?? hete noe annet enn Graph, ellers responderer den p?? global fanen
                         conditionalPanel(
                           condition = "input.PlotTypeNorway == 'Graph'", 
-                          selectInput('Municipality', 'Municipality', kommune, selected = kommune[1]), 
+                          selectInput('Municipality', 'Municipality',unique( kommune), selected = 'Bergen'), 
                           dateRangeInput("dates",
                                          "Date range",
                                          start = "2020-01-22", #start date of the dataset
@@ -200,11 +201,7 @@ ui <- fluidPage(
                         width = 5)
                       ),
                      
-                      # mainPanel(
-                      #   h3(p(strong('Plot output',style="color:salmon")),align="center"),
-                      #   column(plotlyOutput("PlotNor", height = '500px'),width = 12), 
-                      # ),
-                      
+                     
                       hr(),
                       
                       fluidRow(column(width=3),
@@ -420,6 +417,53 @@ graph_dailyDeaths <- function(df, country){
 }
 
 
+##Top3
+
+
+plotTop3dailyCases <- function(df, title){
+  tempdaily_df <- df %>% 
+    filter(date >= Sys.Date()-8 & date <= Sys.Date()-1)%>%
+    arrange(desc(daily_cases))
+  
+  
+  aggdaily <- aggregate(x = tempdaily_df$daily_cases,
+                        by = list(tempdaily_df$country_name),
+                        FUN = sum)
+  
+  
+  
+  top_3 <- as.vector(aggdaily[["Group.1"]])
+  
+  
+  top3 <- aggdaily %>%
+    filter(Group.1 %in% top_3)%>%
+    rename(country_name= "Group.1")%>%
+    arrange(desc(x))%>%
+    head(3)
+  
+  top <- as.vector(top3[["country_name"]])
+  
+  
+  top3 <- tempdaily_df %>% 
+    filter(country_name %in% top)
+  
+  
+  
+  graph2 = top3 %>% 
+    ggplot(aes(x = date, y = daily_cases, color = country_name)) +
+    geom_line( size = 2, alpha = 0.9) +
+    theme_hc() +
+    labs (title = title,
+          y = "Number of cases",
+          color = "Location:   ") +
+    theme(axis.title.x =element_blank(),
+          plot.title =element_text(hjust = 0.5))
+  
+  return (graph2)
+}
+
+
+
 
 
 
@@ -537,7 +581,7 @@ server <- function(input, output) {
   
   data_graphNorway = reactive({
     norway %>% mutate(date = as.Date(date)) %>% 
-      filter(kommune_name == input$Municipality , date >= input$dates[1] & date <=input$dates[2] )
+      filter(country_name == input$Municipality , date >= input$dates[1] & date <=input$dates[2] )
   })
   
  
@@ -546,9 +590,9 @@ server <- function(input, output) {
 
     if(input$PlotTypeNorway == 'Graph'){
       data <- data_graphNorway()
-      #data <- norway %>% filter(kommune_name == "Bergen")
-      #graph_dailyConfirmed(data, "Bergen")
       graph_dailyConfirmed(data,input$Municipality)
+    }else{
+      plotTop3dailyCases(norway, "The 3 municipalities in Norway with the highest number of cases the last week\n")
     }
 
     })
