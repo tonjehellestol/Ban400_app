@@ -906,6 +906,9 @@ server <- function(input, output) {
 }
 
 
+<<<<<<< HEAD
 shinyApp(ui = ui, server = server)
 
+=======
+>>>>>>> 2205127565f3159e94fa7b51c61877097c69afd9
 shinyApp(ui = ui, server = server)
