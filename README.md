@@ -15,6 +15,10 @@ Description:  The app displays live statitics about the Covid19 virus. It contai
 
 Usage:        The app is very userfriendly. Follow the instructions given in the app. 
 
+Webpage link: https://ban400covid19.shinyapps.io/Ban400_app/
+
+Made by: Group number 17
+
 
 
 
