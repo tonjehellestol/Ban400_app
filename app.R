@@ -394,25 +394,26 @@ plotTop3dailyCases <- function(df, title){
     filter(date >= Sys.Date()-8 & date <= Sys.Date()-1)%>% #Filters the dataset for the last week
     arrange(desc(daily_cases)) #Sorts the data
   
-  
-  aggdaily <- aggregate(x = tempdaily_df$daily_cases,
-                        by = list(tempdaily_df$country_name),
+  #Aggregating the data
+  aggdaily <- aggregate(x = tempdaily_df$daily_cases, #aggregated daily cases 
+                        by = list(tempdaily_df$country_name), #sorting by municipality
                         FUN = sum)
   
   
+  #Creating a vector for the aggregated daily cases by municipality 
+  top_3 <- as.vector(aggdaily[["Group.1"]]) #Group.1 is default when using the function aggregate. It is the columname for the municipalities
   
-  top_3 <- as.vector(aggdaily[["Group.1"]])
-  
-  
+  #Creating a dataset for aggregated daily cases for each municipality
   top3 <- aggdaily %>%
-    filter(Group.1 %in% top_3)%>%
-    rename(country_name= "Group.1")%>%
-    arrange(desc(x))%>%
-    head(3)
+    filter(Group.1 %in% top_3)%>% #filtering the data
+    rename(country_name= "Group.1")%>% #renaming to the original name
+    arrange(desc(x))%>% #sorts the data
+    head(3) #includes only the 3 municipalities with highest aggregated daily cases
   
+  #Creating a vector for the 3 municipalities with highest aggregated daily cases the last seven days
   top <- as.vector(top3[["country_name"]])
   
-  
+  #Creating a dataset for the 3 municipalities with highest aggregated daily cases the last seven days
   top3 <- tempdaily_df %>% 
     filter(country_name %in% top)
   
@@ -571,10 +572,9 @@ ui <- fluidPage(
                       
                       hr(),
                       
-
+                      #Rows below the mainpanel
                       #Inspiration from https://github.com/RiveraDaniel/Regression/blob/master/ui.R
                       fluidRow(column(width=3),
-                               #column(width=1),
                                column(br(),
                                       strong(p("Total confirmed number of deaths:")), #Bold text
                                       textOutput("death"), #Prints number of deaths globally/ for a chosen country
@@ -613,16 +613,16 @@ ui <- fluidPage(
                       
              ),
              
+             #Additional panel for Norway
              tabPanel("Norway", icon=icon("bar-chart-o"),
                       sidebarPanel(
                         helpText("Select either Top 3 or Graph to view data. Top 3 displays number of cases for the municipalities with the highest number of cases in the last week."),
-                        #selectInput('StatNorway', 'Data:', c("Confirmed","Deaths")), #c('Map', 'Graph')), #Select data type 
-                        selectInput('PlotTypeNorway', 'Data Visualization:', c('Top 3', 'Graph')),
+                        selectInput('PlotTypeNorway', 'Data Visualization:', c('Top 3', 'Graph')), #Select the data vizualisation. "Top 3" is default
                         
                         #will only show this panel if the data visualization chosen is "Graph"
                         conditionalPanel(
                           condition = "input.PlotTypeNorway == 'Graph'", 
-                          selectInput('Municipality', 'Municipality',unique( kommune), selected = 'Bergen'), 
+                          selectInput('Municipality', 'Municipality',unique( kommune), selected = 'Bergen'), #Select municipality. Bergen is default
                           dateRangeInput("datesNor",
                                          "Date range",
                                          start = "2020-01-22", #start date of the dataset
@@ -631,7 +631,7 @@ ui <- fluidPage(
                           
                         )
                       ),
-                      
+                      #Creates the space and size of the output
                       mainPanel(strong(
                         plotlyOutput('PlotNor',height = '500px'),
                         verbatimTextOutput('text2'),
@@ -639,19 +639,19 @@ ui <- fluidPage(
                       ),
                       
                       
-                      hr(),
+                      hr(), #fluidRow below mainpanel
                       
+                      #Columns/textboxes next to each other
                       fluidRow(column(width=3),
-                               #column(width=1),
                                column(br(),
                                       strong(p("Total confirmed cases:")), 
-                                      textOutput("casesnorway"),
+                                      textOutput("casesnorway"), #Prints total confirmed cases in Norway
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
                                column(widt=4),
                                column(br(),
                                       strong(p("Total confirmed cases the last 30 days:")), 
-                                      textOutput("ccmonth"),
+                                      textOutput("ccmonth"), #Prints total confirmed cases the last 30 days
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
                                br(),
@@ -659,16 +659,17 @@ ui <- fluidPage(
                                
                                column(br(),
                                       strong(p("Total confirmed cases the last 7 days:")), 
-                                      textOutput("ccweek"),
+                                      textOutput("ccweek"), #Prints total confirmed cases the last 7 days
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
                       ),
                       br(),
                       br(),
                       
+                      #columns for test status
                       fluidRow(column(width=3),
                                column(br(),
-                                      htmlOutput("tsnorway"),
+                                      htmlOutput("tsnorway"), #Prints the appropriate test status 
                                       width=9,style="background-color:lightyellow;border-radius: 10px",
                                ),
                                
@@ -680,37 +681,38 @@ ui <- fluidPage(
                       br(),
                       
              ),
+             #Additional panel for diagnostics
              tabPanel("Diagnostics", icon=icon("chart-line"),
                       sidebarPanel(
                         helpText("Choose the testdata you want to examine."),
-                        selectInput('dataset', 'Data:', c('Global', 'Norway')),  
+                        selectInput('dataset', 'Data:', c('Global', 'Norway')),  #Select data 
                         
                         
-                        
+                        #will only show if the data "Global" is chosen
                         conditionalPanel(
                           condition = "input.dataset == 'Global'", 
-                          selectInput('countryDiagnostic', 'Country', countries, selected = countries[1]), 
-                          selectInput('statDiagnostic', 'Statistics', c("Cases","Deaths"), selected = countries[1])
+                          selectInput('countryDiagnostic', 'Country', countries, selected = countries[1]), #Select country 
+                          selectInput('statDiagnostic', 'Statistics', c("Cases","Deaths"), selected = countries[1]) #Select statistics
                           
                         ),
-                        
+                        #will only show if the data "Norway" is chosen
                         conditionalPanel(
                           condition = "input.dataset == 'Norway'", 
-                          selectInput('MunicipalityDiagnostic', 'Municipality', kommune, selected = kommune[1])
+                          selectInput('MunicipalityDiagnostic', 'Municipality', kommune, selected = kommune[1]) #select municipality
                           
                         )),
                       
-                      
+                      #Creates the space and size of the output and a title
                       mainPanel(
                         h3(p(strong('Diagnostics',style="color:salmon")),align="center"),
                         column(htmlOutput("TextDiagnostic"),width = 12,style="border:1px solid black"),
                         column(br(), plotOutput("plotDiagnostic"),width = 12),
                       ),
                       hr(),
-                      
+                      #Column below the output 
                       fluidRow(column(width=3),
                                column(br(),
-                                      textOutput("noe?"),
+                                      textOutput("noe?"), #explanation of the test
                                       width=9,style="background-color:white;border-radius: 10px",
                                ),
                                
@@ -723,12 +725,12 @@ ui <- fluidPage(
                       
              ),
              
-             
+             #Additional panel for further information
              tabPanel("About this site", icon=icon("arrow-right"),
                       tags$div(
-                        tags$h4("Last update"),
-                        h6(paste0(as.character(Sys.Date()))),
-                        p("This site uses data for Norway retrived from", a(href="https://github.com/thohan88/covid19-nor-data", "https://github.com/thohan88/covid19-nor-data", target="_blank"), "and the built in data packages in R, covid19() and covid19.data(). The data is updated once daily, and numbers till yesterday is included in the data visualization."),
+                        tags$h4("Last update"), #Title
+                        h6(paste0(as.character(Sys.Date()))), #Pastes todays date 
+                        p("This site uses data for Norway retrived from", a(href="https://github.com/thohan88/covid19-nor-data", "https://github.com/thohan88/covid19-nor-data", target="_blank"), "and the built in data packages in R, covid19() and covid19.data(). The data is updated once daily, and numbers till yesterday is included in the data visualization."), #Pastes text and link to dataset
                         
                         
                       )
