@@ -121,6 +121,7 @@ norway <- norway %>%
 kommune <- norway %>% select("country_name")
 
 
+
 #---------------------------------- UI ----------------------------------#
 ui <- fluidPage( 
   titlePanel(
