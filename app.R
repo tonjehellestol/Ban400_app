@@ -458,9 +458,9 @@ getGlobalDeaths<- function(df){
   
   map_data <- df %>% 
     filter(date == Sys.Date()-2) %>% 
-    mutate(casesPer100k = round(confirmed_deaths/population*100000,0),)%>% 
+    mutate(casesPer100k = round(confirmed_deaths/population*100000,0),)%>% #calculate and store cases per 100k
     select(ID, date, country_name, ID, casesPer100k) %>% 
-    mutate(hover = paste0(country_name, "\n", casesPer100k))
+    mutate(hover = paste0(country_name, "\n", casesPer100k))#hover for the map 
   
   return (map_data)
   
@@ -472,25 +472,25 @@ drawMap <- function(map_data, main_title, colorbar_title){
   
   
   map <- plot_ly(map_data, 
-                 type='choropleth', 
-                 locations=map_data$ID,
+                 type='choropleth', #map
+                 locations=map_data$ID, #country letters
                  z=map_data$casesPer100k, 
                  zmin=0,
                  zmax = max(map_data$casesPer100k),
                  colorscale = list(c(0, 0.1, 0.2,0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1), 
-                                   c(brewer.pal(11,'Spectral'))),
+                                   c(brewer.pal(11,'Spectral'))), #11 color groups to display the differences between countries
                  color = map_data$casesPer100k,
                  text = map_data$hover,
-                 hoverinfo = 'text') %>% 
+                 hoverinfo = 'text') %>% #info about which country and the number of cases
     colorbar(title = colorbar_title, len = 0.75) %>% 
-    add_annotations(
+    add_annotations(#title adjustments
       y=1.05, 
       x=0.5, 
       text= main_title, 
       showarrow=F,
       font=list(size=15)
     ) %>% 
-    config(displayModeBar = FALSE)
+    config(displayModeBar = FALSE) #hide displaybar
   
   
   
@@ -744,60 +744,61 @@ server <- function(input, output) {
   
   ######GLOBAL########
   
+  #retrives data depending on which country and date range the user choose
   data_graph = reactive({
     Crossgovsources_df %>% mutate(date = as.Date(date)) %>% 
       filter( country_name == input$Country, date >= input$dates[1] & date <=input$dates[2] ) 
   })
   
   
-  
+  #plots the users requested plot(graph or map) and case-type(confirmed cases or deaths)
   output$plot <- renderPlotly({
-    if(input$PlotType == 'Graph'){
-      data <- data_graph()
-      if (input$Stat == 'Deaths'){
+    if(input$PlotType == 'Graph'){ #draw a graph
+      data <- data_graph()#retrive relevant data
+      if (input$Stat == 'Deaths'){ #plot confirmed deaths of wanted country
         graph_dailyDeaths(data, input$Country)
-      }else{ #confirmed
+      }else{ #plot confirmed cases of wanted country
         graph_dailyConfirmed(data, input$Country)
-      }}else{#map
-        if (input$Stat == 'Deaths'){
+      }}else{# draw map
+        if (input$Stat == 'Deaths'){ #map confirmed deaths
           Crossgovsources_df %>% getGlobalDeaths() %>%
             drawMap( paste0("Confirmed number of deaths per 100.000 as of ", as.character(Sys.Date()-2)), "Number of deaths" )
-        }else{ #confirmed cases
+        }else{ #map confirmed cases
           Crossgovsources_df %>% getGlobalConfirmed() %>%
             drawMap( paste0("Confirmed cases per 100.000 as of ", as.character(Sys.Date()-2)), "Confirmed cases")
         }
       }
   })
   
-  #Outfor for the boxes below the graph/map
-  #Bruk renderText istedet hvis det skal v??re if funksjon e.l., for renderPrint kan man feks skrive summary(totaldeaths)
-  #Denne linken kan sjekkes ut https://github.com/RiveraDaniel/Regression/blob/master/server.R
+  ##Output for the boxes below the graph/map
   
-  
+  #number of deaths
   output$death <- renderText({
-    if (input$PlotType == 'Graph'){
+    if (input$PlotType == 'Graph'){ #number of deaths for the given country
       totalDeaths(data_graph())
       
-    }else{
+    }else{ #total of deaths related to covid in the world
       totalDeaths(Crossgovsources_df)
     }
     
   }) 
   
-  
+  #display number of confirmed cases
   output$TCC <- renderText({
-    if (input$PlotType == 'Graph'){
+    if (input$PlotType == 'Graph'){ #number of cases for the given country
       totalConfirmed(data_graph())
       
-    }else{
-      totalConfirmed(Crossgovsources_df)
+    }else{#total cases of covid19 in the world
+      totalConfirmed(Crossgovsources_df) 
     }
   })
+  
+  #display the number of tested reported
   output$ntests <- renderText({
-    if (input$PlotType == 'Graph'){
+    if (input$PlotType == 'Graph'){ #number of test reported for the given country
       totalTested(data_graph())
       
-    }else{
+    }else{ #total number of tests reported in the world
       totalTested(Crossgovsources_df)
     }
     
@@ -808,78 +809,91 @@ server <- function(input, output) {
   ######Norway########
   
   
-  #Retriving data
+  #Retriving data depending on the date range and the municipality choosen by the user
   data_graphNorway = reactive({
     norway %>% mutate(date = as.Date(date)) %>% 
       filter(country_name == input$Municipality , date >= input$datesNor[1] & date <=input$datesNor[2] )
   })
   
   
-  #Plot
+  #Plot confirmed cases
+  #Graph of a municipality or top 3 dpending on the users input
   output$PlotNor <- renderPlotly({
     
     if(input$PlotTypeNorway == 'Graph'){
       data <- data_graphNorway()
-      graph_dailyConfirmed(data,input$Municipality)
-    }else{
-      plotTop3dailyCases(norway, "Three municipalities with the highest number of cases in the last week")
+      graph_dailyConfirmed(data,input$Municipality) #plot daily confirmed of the given municipality
+    }else{#plot top 3 municipalities with the highest number of cases the last week
+      plotTop3dailyCases(norway, "Three municipalities with the highest number of cases in the last week") 
     }
     
   })
   
+  ##Output for boxes below the graph
   
+  #display number of cases
   output$casesnorway <- renderText({
-    if (input$PlotTypeNorway == 'Graph'){
-      totalConfirmed(data_graphNorway())
+    if (input$PlotTypeNorway == 'Graph'){ #number of cases for the given municipality
+      totalConfirmed(data_graphNorway()) 
       
     }else{
-      totalConfirmed(norway)
+      totalConfirmed(norway)#total confirmed cases in norway
     }})
+  
+  #display number of cases the last month
   output$ccmonth <- renderText({
     if (input$PlotTypeNorway == 'Graph'){
-      casesmonth(data_graphNorway())
-    }else{
-      casesmonth(norway)
+      casesmonth(data_graphNorway()) #for the given municipality
+    }else{ 
+      casesmonth(norway)  #for Norway in total
     }})
+  
+  #display number of cases the last week
   output$ccweek <- renderText({
-    if(input$PlotTypeNorway == 'Graph'){
-      casesweek(data_graphNorway())
+    if(input$PlotTypeNorway == 'Graph'){ 
+      casesweek(data_graphNorway())#the given municipality
     }else{
-      casesweek(norway)
+      casesweek(norway)#for Norway in total
       
     }})
   
   
   
   #Short output for diagnostics
+  
+  
   output$tsnorway <- renderText({
     if(input$PlotTypeNorway == 'Graph'){
-      HTML(paste(accumulative_test(norway, input$Municipality, column = "cases", short = TRUE)))
-    }else{
-      HTML(paste("Chose  'graph' and a municipality to examine the data in more details."))
+      HTML(paste(accumulative_test(norway, input$Municipality, column = "cases", short = TRUE))) #short test result of the accumulative test
+    }else{#top3
+      HTML(paste("Chose  'graph' and a municipality to examine the data in more details."))#info
     }
   }) 
   
   
   output$tsglobal <- renderText({
     if(input$PlotType == 'Graph'){
-      HTML(paste(accumulative_test(Crossgovsources_df, input$Country, tolower(input$Stat), short = TRUE)))
-    }else{
+      HTML(paste(accumulative_test(Crossgovsources_df, input$Country, tolower(input$Stat), short = TRUE))) #short test result of the accumulative test
+    }else{ #map
       HTML(paste("Chose 'graph' and a country to examine the data in more details."))
     }
   })
   
   
-  #Output for the diagnostics tab
+  ##Output for the diagnostics tab
+  
+  #output for the accumulative test
   output$TextDiagnostic <- renderText({
-    if(input$dataset == "Global"){
-      HTML(paste(accumulative_test(Crossgovsources_df,input$countryDiagnostic, tolower(input$statDiagnostic))))
+    if(input$dataset == "Global"){ 
+      HTML(paste(accumulative_test(Crossgovsources_df,input$countryDiagnostic, tolower(input$statDiagnostic))))#test result for wanted country
     }
-    else if(input$dataset == "Norway"){
-      HTML(paste(accumulative_test(norway, input$MunicipalityDiagnostic)))
+    else if(input$dataset == "Norway"){ 
+      HTML(paste(accumulative_test(norway, input$MunicipalityDiagnostic)))#test result for wanted municipality
     }
   })
   
+  #Output for the difference test
+  #Displays a plot showing in what extent the two global datasets are reporting the same results
   output$plotDiagnostic <- renderPlot({
     if(input$dataset == "Global"){
       getDifference_datasets(difference_jhd_cgov,input$statDiagnostic, input$countryDiagnostic)
@@ -890,5 +904,6 @@ server <- function(input, output) {
   
   
 }
+
 
 shinyApp(ui = ui, server = server)
