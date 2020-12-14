@@ -68,6 +68,14 @@ Crossgovsources_df <- covid19() %>%
   mutate(daily_cases = c(0,diff(confirmed_cases)), daily_deaths = c(0,diff(confirmed_deaths))) %>% #calculate daily increase in number of deaths and confirmed cases
   ungroup() 
 
+#Adding column "negative_daily_cases" and "negative_daily_deaths", holds the value 1 if daily_cases/daily_deaths are negative, 0 otherwise
+Crossgovsources_df <- Crossgovsources_df %>% group_by(country_name) %>% mutate(negative_daily_cases = (ifelse( daily_cases < 0, 1, 0)), negativ_daily_deaths = (ifelse( daily_deaths < 0, 1, 0))) %>% ungroup()
+
+#Correction: changing negative daily_deaths and negative daily_cases to 0
+Crossgovsources_df <- Crossgovsources_df %>% 
+  mutate( daily_deaths = replace(daily_deaths , daily_deaths < 0, 0), daily_cases = replace(daily_cases , daily_cases < 0, 0))
+
+
 
 #options for user - countries in the dataset
 countries <- Crossgovsources_df  %>% select(country_name)
@@ -79,17 +87,18 @@ countries <- Crossgovsources_df  %>% select(country_name)
 ### Retrieved from https://github.com/thohan88/covid19-nor-data
 norwaydata <- read.csv("https://raw.githubusercontent.com/thohan88/covid19-nor-data/master/data/01_infected/msis/municipality_and_district.csv", na.strings = "", fileEncoding = "UTF-8-BOM")
 norwaydata$date <- as.Date(norwaydata$date)
-
+norwaydata$kommune_name
 
 norway <- norwaydata %>% 
-  select("date","kommune_name","fylke_name","cases") %>% 
-  group_by(kommune_name, date, fylke_name) %>% 
-  summarise_at(vars(cases),             
-               list(cases = sum)) %>% 
-  ungroup() %>% 
-  group_by(kommune_name) %>% 
   rename("country_name" = kommune_name) %>% 
-  mutate(daily_cases= c(0,diff(cases)))
+  rename("confirmed_cases" = cases ) %>% 
+  select("date","country_name","fylke_name","confirmed_cases") %>% 
+  group_by(country_name, date, fylke_name) %>% 
+  summarise_at(vars(confirmed_cases),             
+               list(confirmed_cases = sum)) %>% 
+  ungroup() %>% 
+  group_by("country_name") %>% 
+  mutate(daily_cases= c(0,diff(confirmed_cases)))
 
 
 
@@ -529,13 +538,16 @@ drawMap <- function(map_data, main_title, colorbar_title){
 
 ###Small functions
 
-deaths <- function(df)
-  df$confirmed_deaths[df$date== Sys.Date()-2]
+deaths <- function(df){
+  numb <- df$confirmed_deaths[df$date== Sys.Date()-2]
+  return(numb)
+}
 
 
 
 
-Crossgovsources_df %>% filter(country_name == "Argentina") %>% deaths()
+#Crossgovsources_df %>% filter(country_name=='Argentina') %>%  deaths()
+
 
 
 #####Server######
