@@ -1,6 +1,6 @@
 #----------------------------------------------------------------------
 #BAN400 - Introduction to R
-#September 2020
+#December 2020
 #----------------------------------------------------------------------
 #References:
 #Covid19.analytics package:
@@ -16,7 +16,8 @@
 
 list.of.packages <- c("covid19.analytics", "magrittr", "tidyr", "ggplot2",
                       "shiny", "shinyWidgets", "data.table", "scales", "wpp2019",
-                      "RColorBrewer", "rworldmap", "dplyr", "plotly")
+                      "RColorBrewer", "rworldmap", "dplyr", "plotly","COVID19","ggthemes",
+                      "gganimate", "forecast", "zoo", "stringr", "lubridate", "tidyquant")
 
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
@@ -100,11 +101,11 @@ norway <- norwaydata %>%
   rename("confirmed_cases" = cases ) %>% 
   select("date","country_name","fylke_name","confirmed_cases") %>% 
   group_by(country_name, date, fylke_name) %>% 
-  summarise_at(vars(confirmed_cases),             
+  summarise_at(vars(confirmed_cases), #Sums cases for Municipalities that are divided into sub-areas           
                list(confirmed_cases = sum)) %>% 
   ungroup() %>% 
   group_by(country_name) %>% 
-  mutate(daily_cases= c(0,diff(confirmed_cases))) %>% 
+  mutate(daily_cases= c(0,diff(confirmed_cases))) %>% #Calculates daily difference for each Municipality
   ungroup()
 
 #Adding column "negative_daily_cases" and "negative_daily_deaths", holds the value 1 if daily_cases/daily_deaths are negative, 0 otherwise
@@ -114,18 +115,20 @@ norway <- norway %>% group_by(country_name) %>%
   ungroup()
 
 #Correction: changing negative daily_deaths and negative daily_cases to 0
+#This is done such that the graphs created by the app does not display negative number of cases
 norway <- norway %>% 
   mutate(daily_cases = replace(daily_cases , daily_cases < 0, 0))
 
 
 #Creating a dataset for the statistics and one for the municipalities 
-
 kommune <- norway %>% select("country_name")
 
 
 
-##Retriving data to compare crossgov with
 
+#Retrieving datasets from covid19.analytics package
+#The source of the data is John Hopkins University and is to be compared to the 
+#data provided by the COVID19 package
 JHD_df_cleaning <- function(df, case_type){
   df %>% 
     group_by(Country.Region) %>% 
@@ -147,8 +150,9 @@ JHD_df_full <- JHD_df_confirmed %>%
   mutate(date=as.Date(date, format = "%Y-%m-%d"), country_name = as.character(country_name)) %>% 
   mutate(daily_cases = c(0,diff(confirmed_cases)), daily_deaths = c(0,diff(confirmed_deaths)))
 
+
 # Gone through all the country names and numbers to manually change
-# the names between them 
+# the names between them, fuzzy matching did not yield an appropriate result 
 
 #American Samoa,Bermuda, Costa Atlantica, Grand Princess, Guam, Northern Mariana Islands, 
 #Puerto Rico, Virgin Islands, U.S. not in JHD-dataset. So no difference in these countries. 
@@ -187,6 +191,347 @@ difference_jhd_cgov <- merge(JHD_df_full, Crossgovsources_df, by=c("date","count
 
 
 
+#---------------------------------- Functions ----------------------------------#
+
+##########Tests#########
+
+
+
+####Testing if there exist a decrease in accumulative cases for a given country/municipality
+####The function returns a string with the test results
+accumulative_test <- function(df, group, column="cases", short = FALSE){ #parameter short defines if a short testresult should be returned
+  temp_df <- df %>% filter(country_name == group, df[paste0("negative_daily_",as.character(column))] == 1) #creates a temporary dataset with municipalities and binary column for cases/deaths
+  n <- nrow(temp_df) #counts number of rows equal to 1 (i.e 1 if accumulated value has decreased)
+  if(n == 0){ #Short test result if tess is passed (There is no need for a detailed result if passed)
+    result <- paste("***Accumulative Test PASSED***<br/>There have been 0 instances where accumulative values have decreased in ", group)
+  } else if (n!=0 & short == TRUE){ #Short test result if test is not passed
+    result <- paste("***Accumulative Test FAILED**<br/>There have been ", n, " instances where accumulative values have decreased in ", group,
+                    "<br/>To view full diagnostic, go to the diagnostic page and chose current input", sep="")
+    
+  }else { #Detailed test result if test is not passed
+    result <- paste("***Accumulative Test FAILED***<br/>There have been", n, "instances where accumulative values have decreased in", group,
+                    "<br/>This might be due to correction of quantity registered, although this is not certain.",
+                    "<br/>The dates this happened are postet below:<br/>",sep = " ")
+    for(row in 1:nrow(temp_df)){ #Iterates through data frame adding date and values to string for output
+      temp_df2 <- df %>% #Creates data.frame to retrieve value for cases prior to decrease
+        filter(date == temp_df$date[row] - 1, country_name == group)
+      result <- paste(result, "<br/>Date: ", temp_df$date[row], " ",str_to_title(column),": ", temp_df$confirmed_cases[row], 
+                      "  ---- ",str_to_title(column) ," previous day: ",temp_df2$confirmed_cases[1], " ---- Difference: ", 
+                      (temp_df[row, paste0("confirmed_",as.character(column))] - temp_df2[1, paste0("confirmed_", as.character(column))]), sep="")
+    }
+    
+  }
+  return(result)
+}
+
+
+
+###Testing if there exist differences between crossgov and JHU datasets, both containing global data 
+getDifference_datasets<- function(data,type,country_name_input){
+  
+  data <- difference_jhd_cgov
+  df_2 <- data
+  difference_jhd_cgov_ <- df_2 %>% filter(country_name == country_name_input)
+  difference_jhd_cgov_$date <- as.Date(difference_jhd_cgov_$date)
+  
+  # Sorting first by country, then date <- ascending 
+  difference_jhd_cgov_ <- difference_jhd_cgov_[order(difference_jhd_cgov_[,2], difference_jhd_cgov_[,1] ),]
+  difference_jhd_cgov_$confirmed_cases_JHD[is.na(difference_jhd_cgov_$confirmed_cases_JHD)] <- 0
+  difference_jhd_cgov_$confirmed_deaths_JHD[is.na(difference_jhd_cgov_$confirmed_deaths_JHD)] <- 0
+  if(type == "Cases") {
+    
+    difference_jhd_cgov_1 <- difference_jhd_cgov_ %>% 
+      mutate(sum_confirmed_cases_JHD = (confirmed_cases_JHD),
+             sum_confirmed_cases_CG = (confirmed_cases_CG))
+    difference_jhd_cgov_1$difference_from_Cgov <- ifelse(is.na(difference_jhd_cgov_1$sum_confirmed_cases_JHD),1,ifelse(is.na(difference_jhd_cgov_1$sum_confirmed_cases_CG),1,ifelse(difference_jhd_cgov_1$sum_confirmed_cases_JHD == 0,1,ifelse(difference_jhd_cgov_1$sum_confirmed_cases_CG==0,1,difference_jhd_cgov_1$sum_confirmed_cases_CG/difference_jhd_cgov_1$sum_confirmed_cases_JHD))))
+    print("Finding number of confirmed cases similarity in datasets!")
+    
+  }
+  if(type == "Deaths") {
+    
+    difference_jhd_cgov_1 <- difference_jhd_cgov_ %>% 
+      mutate(sum_confirmed_deaths_JHD = (confirmed_deaths_JHD),
+             sum_confirmed_deaths_CG = (confirmed_deaths_CG)) 
+    difference_jhd_cgov_1$difference_from_Cgov <- ifelse(is.na(difference_jhd_cgov_1$sum_confirmed_deaths_JHD),1,ifelse(is.na(difference_jhd_cgov_1$sum_confirmed_deaths_CG),1,ifelse(difference_jhd_cgov_1$sum_confirmed_deaths_JHD == 0,1,ifelse(difference_jhd_cgov_1$sum_confirmed_deaths_CG==0,1,difference_jhd_cgov_1$sum_confirmed_deaths_CG/difference_jhd_cgov_1$sum_confirmed_deaths_JHD))))
+    print("Finding number of confirmed deaths similarity in datasets!")
+    
+  }
+
+
+  weekly_diff <- difference_jhd_cgov_1 %>%
+    tq_transmute(select     = difference_from_Cgov,
+                 mutate_fun = apply.weekly,
+                 FUN        = sum)
+  #unique(diff_datasets$difference_from_Cgov)
+  weekly_diff$aggregate_weekly_diff <- 100*weekly_diff$difference_from_Cgov/7
+  
+  aa <- weekly_diff %>% group_by(date) %>% summarise(Weekly_difference_between_datasets = mean(aggregate_weekly_diff))
+  #The data on individual level will be by-weekly, but the different countries started testing and logging 
+  # information at different times,. i.e. the week start date is different each chosen country
+  
+  aa$Interval <- cut(aa$Weekly_difference_between_datasets, c(0,95,100,105,Inf))
+  
+  aaa <- ggplot(data=aa, aes(x=date, y=Weekly_difference_between_datasets)) + geom_smooth() + geom_point(aes(colour = Interval)) + ggtitle("% Similiarity in datasets")
+  return (aaa + xlab("Date") +ylab("% Similiarity between COVID19-package and John Hopkins dataset"))
+  
+  
+  
+}
+
+
+
+
+##########Graphs#########
+
+
+graph_dailyConfirmed <- function(df, country){
+  
+  
+  temp_df <- df 
+  temp_df$average <- ma(temp_df$daily_cases, 7)
+  
+  
+  #Creating graph  
+  graph_cases <- temp_df %>%
+    ggplot(aes(x=date)) +
+    geom_bar(aes(y=daily_cases, text = paste0("New Cases: ", daily_cases, "\nDate: ", date)), stat ="identity", colour = "#DD8888", fill = "#e74c4c", alpha = 0.4) +
+    geom_line(aes(y = average), size = 1.5, colour = "red", alpha = 0.6) +
+    labs (title = paste("Daily Confirmed Cases of Covid19 in", country, sep = " "),
+          x = "Date\n",
+          y = "Confirmed Cases\n") +
+    theme_hc() +
+    theme(axis.title.x =element_blank(),
+          axis.title.y = element_text(size = 16, face = "bold"),
+          plot.title =element_text(hjust = 0.5, face = "bold", size = 16)) +
+    scale_x_date(date_breaks = "months" , date_labels = "%b-%y")
+  
+  
+  ## Creating font for the interactive tooltip
+  interactive_font = list(
+    family = "DM Sans",
+    size = 16,
+    color = "white"
+  )
+  
+  ## Creating the layout for the interactive tooltip
+  interactive_label = list(
+    bgcolor = "#595959",
+    bordercolor = "transparent",
+    font = interactive_font
+  )
+  
+
+  ## Turning graph_cases to an interactive graph
+  interactive_plot <- ggplotly(graph_cases, tooltip = c("text"), layerData = 1) %>% 
+    style(hoverlabel = interactive_label) %>% #sets layout for tooltip labels
+    layout(font = interactive_font, #sets font for plot
+           yaxis = list(fixedrange = TRUE)) %>% 
+    config(displayModeBar = FALSE) #Removes the tooltip bar at top left of graphing window
+  
+  
+  
+  return(interactive_plot)
+}
+
+
+graph_dailyDeaths <- function(df, country){
+  
+  
+  temp_df <- df # Creates a temporary dataframe
+  temp_df$average <- ma(temp_df$daily_deaths, 7) #Calculates moving averages by interval of 7 days (1 week)
+  
+  
+  #Creating graph  
+  graph_cases <- temp_df %>%
+    ggplot(aes(x=date)) +
+    geom_bar(aes(y=daily_deaths, text = paste0("New Cases: ", daily_cases, "\nDate: ", date)), stat ="identity", colour = "#DD8888", fill = "#e74c4c", alpha = 0.4) +
+    geom_line(aes(y = average), size = 1.5, colour = "red", alpha = 0.6) +
+    labs (title = paste("Daily Confirmed Deaths of Covid19 in", country, sep = " "),
+          x = "Date\n",
+          y = "Confirmed deaths\n") +
+    theme_hc() +
+    theme(axis.title.x =element_blank(),
+          axis.title.y = element_text(size = 16, face = "bold"),
+          plot.title =element_text(hjust = 0.5, face = "bold", size = 16)) +
+    scale_x_date(date_breaks = "months" , date_labels = "%b-%y")
+  
+  
+  ## Creating font for the interactive tooltip
+  interactive_font = list(
+    family = "DM Sans",
+    size = 16,
+    color = "white"
+  )
+  
+  ## Creating the layout for the interactive tooltip
+  interactive_label = list(
+    bgcolor = "#595959",
+    bordercolor = "transparent",
+    font = interactive_font
+  )
+  
+  ##
+  
+  ## Turning graph_cases to an interactive graph
+  interactive_plot <- ggplotly(graph_cases, tooltip = c("text"), layerData = 1) %>% 
+    style(hoverlabel = interactive_label) %>% 
+    layout(font = interactive_font,
+           yaxis = list(fixedrange = TRUE)) %>% 
+    config(displayModeBar = FALSE)
+  
+  
+  
+  
+  return(interactive_plot)
+}
+
+
+##Top3
+
+
+plotTop3dailyCases <- function(df, title){
+  tempdaily_df <- df %>% 
+    filter(date >= Sys.Date()-8 & date <= Sys.Date()-1)%>% #Filters the dataset for the last week
+    arrange(desc(daily_cases)) #Sorts the data
+  
+  
+  aggdaily <- aggregate(x = tempdaily_df$daily_cases,
+                        by = list(tempdaily_df$country_name),
+                        FUN = sum)
+  
+  
+  
+  top_3 <- as.vector(aggdaily[["Group.1"]])
+  
+  
+  top3 <- aggdaily %>%
+    filter(Group.1 %in% top_3)%>%
+    rename(country_name= "Group.1")%>%
+    arrange(desc(x))%>%
+    head(3)
+  
+  top <- as.vector(top3[["country_name"]])
+  
+  
+  top3 <- tempdaily_df %>% 
+    filter(country_name %in% top)
+  
+  
+  #Plots the data
+  graph2 = top3 %>% 
+    ggplot(aes(x = date, y = daily_cases, color = country_name)) +
+    geom_line( size = 2, alpha = 0.9) +
+    theme_hc() +
+    labs (title = title,
+          y = "Number of cases",
+          color = "Location:   ") +
+    theme(axis.title.x =element_blank(),
+          plot.title =element_text(hjust = 0.5))
+  
+  return (graph2)
+}
+
+
+
+
+
+
+##########MAP#############
+
+
+#Retrieved total number of confirmed cases globally
+getGlobalConfirmed<- function(df){
+  
+  map_data <- df %>% 
+    filter(date == Sys.Date()-2 ) %>% 
+    mutate(casesPer100k = round(confirmed_cases/population*100000,0),)%>% 
+    select(ID, date, country_name, ID, casesPer100k) %>% 
+    mutate(hover = paste0(country_name, "\n", casesPer100k))
+  
+  return (map_data)
+  
+}
+
+#Retrieves total number of deaths globally
+getGlobalDeaths<- function(df){
+  
+  map_data <- df %>% 
+    filter(date == Sys.Date()-2) %>% 
+    mutate(casesPer100k = round(confirmed_deaths/population*100000,0),)%>% 
+    select(ID, date, country_name, ID, casesPer100k) %>% 
+    mutate(hover = paste0(country_name, "\n", casesPer100k))
+  
+  return (map_data)
+  
+}
+
+
+#Function to draw the interactive map 
+drawMap <- function(map_data, main_title, colorbar_title){
+  
+  
+  map <- plot_ly(map_data, 
+                 type='choropleth', 
+                 locations=map_data$ID,
+                 z=map_data$casesPer100k, 
+                 zmin=0,
+                 zmax = max(map_data$casesPer100k),
+                 colorscale = list(c(0, 0.1, 0.2,0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1), 
+                                   c(brewer.pal(11,'Spectral'))),
+                 color = map_data$casesPer100k,
+                 text = map_data$hover,
+                 hoverinfo = 'text') %>% 
+    colorbar(title = colorbar_title, len = 0.75) %>% 
+    add_annotations(
+      y=1.05, 
+      x=0.5, 
+      text= main_title, 
+      showarrow=F,
+      font=list(size=15)
+    ) %>% 
+    config(displayModeBar = FALSE)
+  
+  
+  
+  return(map)
+  
+}
+
+
+###Stats for boxes 
+
+
+
+#Returns total number of deaths in the dataset
+totalDeaths <-function(df){
+  df <- df %>% filter(date == Sys.Date() -2) 
+  number(sum(df$confirmed_deaths),
+         big.mark = " ")
+}
+
+#Returns total number of confirmed cases in the dataset
+totalConfirmed <- function(df){
+  
+  df <- df %>% filter(date == Sys.Date() -2) 
+  number(sum(df$confirmed_cases), big.mark = " ")
+}
+
+#Return total number of tests in the dataset
+totalTested <- function(df){
+  df <- df %>% filter(date == Sys.Date() -2) 
+  number(sum(df$tests), big.mark = " ")
+}
+
+
+casesmonth <- function(df){
+  numb <- df$daily_cases[df$date >= Sys.Date()-31 & df$date <= Sys.Date()-1]
+  return(number(sum(numb), big.mark = " "))
+}
+
+casesweek <- function(df){
+  numb <- df$daily_cases[df$date >= Sys.Date()-8 & df$date <= Sys.Date()-1]
+  return(number(sum(numb), big.mark = " "))
+}
 
 
 
@@ -226,7 +571,7 @@ ui <- fluidPage(
                       
                       hr(),
                       
-                      #Textboxes below the mainplot
+
                       #Inspiration from https://github.com/RiveraDaniel/Regression/blob/master/ui.R
                       fluidRow(column(width=3),
                                #column(width=1),
@@ -270,7 +615,7 @@ ui <- fluidPage(
              
              tabPanel("Norway", icon=icon("bar-chart-o"),
                       sidebarPanel(
-                        helpText("Choose"),
+                        helpText("Select either Top 3 or Graph to view data. Top 3 displays number of cases for the municipalities with the highest number of cases in the last week."),
                         #selectInput('StatNorway', 'Data:', c("Confirmed","Deaths")), #c('Map', 'Graph')), #Select data type 
                         selectInput('PlotTypeNorway', 'Data Visualization:', c('Top 3', 'Graph')),
                         
@@ -391,359 +736,6 @@ ui <- fluidPage(
 
 
 
-#---------------------------------- Functions ----------------------------------#
-
-##########Tests#########
-
-
-
-####Testing if there exist a decrease in accumulative cases for a given country/municipality
-####The function returns a string with the test results
-accumulative_test <- function(df, group, column="cases", short = FALSE){
-  temp_df <- df %>% filter(country_name == group, df[paste0("negative_daily_",as.character(column))] == 1) #creates a temporary dataset with municipalities and binary column for cases/deaths
-  n <- nrow(temp_df) #counts number of rows equal to 1 (i.e accumulated value has decreased)
-  if(n == 0){
-    result <- paste("***Accumulative Test PASSED***<br/>There have been 0 instances where accumulative values have decreased in ", group)
-  } else if (n!=0 & short == TRUE){
-    result <- paste("***Accumulative Test FAILED**<br/>There have been ", n, " instances where accumulative values have decreased in ", group,
-                    "<br/>To view full diagnostic, go to the diagnostic page and chose current input", sep="")
-    
-  }else {
-    result <- paste("***Accumulative Test FAILED***<br/>There have been", n, "instances where accumulative values have decreased in", group,
-                    "<br/>This might be due to correction of quantity registered, although this is not certain.",
-                    "<br/>The dates this happened are postet below:<br/>",sep = " ")
-    for(row in 1:nrow(temp_df)){ #Iterates through data frame adding date and values to string for output
-      temp_df2 <- df %>% 
-        filter(date == temp_df$date[row] - 1, country_name == group)
-      result <- paste(result, "<br/>Date: ", temp_df$date[row], " ",str_to_title(column),": ", temp_df$confirmed_cases[row], 
-                      "  ---- ",str_to_title(column) ," previous day: ",temp_df2$confirmed_cases[1], " ---- Difference: ", 
-                      (temp_df[row, paste0("confirmed_",as.character(column))] - temp_df2[1, paste0("confirmed_", as.character(column))]), sep="")
-    }
-    
-  }
-  return(result)
-}
-
-
-
-###Testing if there exist differences between crossgov and JHU datasets, both containing global data 
-getDifference_datasets<- function(data,type,country_name_input){
-  
-  data <- difference_jhd_cgov
-  df_2 <- data
-  difference_jhd_cgov_ <- df_2 %>% filter(country_name == country_name_input)
-  difference_jhd_cgov_$date <- as.Date(difference_jhd_cgov_$date)
-  
-  # Sorting first by country, then date <- ascending 
-  difference_jhd_cgov_ <- difference_jhd_cgov_[order(difference_jhd_cgov_[,2], difference_jhd_cgov_[,1] ),]
-  difference_jhd_cgov_$confirmed_cases_JHD[is.na(difference_jhd_cgov_$confirmed_cases_JHD)] <- 0
-  difference_jhd_cgov_$confirmed_deaths_JHD[is.na(difference_jhd_cgov_$confirmed_deaths_JHD)] <- 0
-  if(type == "Cases") {
-    
-    difference_jhd_cgov_1 <- difference_jhd_cgov_ %>% 
-      mutate(sum_confirmed_cases_JHD = (confirmed_cases_JHD),
-             sum_confirmed_cases_CG = (confirmed_cases_CG))
-    difference_jhd_cgov_1$difference_from_Cgov <- ifelse(is.na(difference_jhd_cgov_1$sum_confirmed_cases_JHD),1,ifelse(is.na(difference_jhd_cgov_1$sum_confirmed_cases_CG),1,ifelse(difference_jhd_cgov_1$sum_confirmed_cases_JHD == 0,1,ifelse(difference_jhd_cgov_1$sum_confirmed_cases_CG==0,1,difference_jhd_cgov_1$sum_confirmed_cases_CG/difference_jhd_cgov_1$sum_confirmed_cases_JHD))))
-    print("Finding number of confirmed cases similarity in datasets!")
-    
-  }
-  if(type == "Deaths") {
-    
-    difference_jhd_cgov_1 <- difference_jhd_cgov_ %>% 
-      mutate(sum_confirmed_deaths_JHD = (confirmed_deaths_JHD),
-             sum_confirmed_deaths_CG = (confirmed_deaths_CG)) 
-    difference_jhd_cgov_1$difference_from_Cgov <- ifelse(is.na(difference_jhd_cgov_1$sum_confirmed_deaths_JHD),1,ifelse(is.na(difference_jhd_cgov_1$sum_confirmed_deaths_CG),1,ifelse(difference_jhd_cgov_1$sum_confirmed_deaths_JHD == 0,1,ifelse(difference_jhd_cgov_1$sum_confirmed_deaths_CG==0,1,difference_jhd_cgov_1$sum_confirmed_deaths_CG/difference_jhd_cgov_1$sum_confirmed_deaths_JHD))))
-    print("Finding number of confirmed deaths similarity in datasets!")
-    
-  }
-  #install.packages("tidyquant")
-  library(tidyquant)
-  weekly_diff <- difference_jhd_cgov_1 %>%
-    tq_transmute(select     = difference_from_Cgov,
-                 mutate_fun = apply.weekly,
-                 FUN        = sum)
-  #unique(diff_datasets$difference_from_Cgov)
-  weekly_diff$aggregate_weekly_diff <- 100*weekly_diff$difference_from_Cgov/7
-  
-  aa <- weekly_diff %>% group_by(date) %>% summarise(Weekly_difference_between_datasets = mean(aggregate_weekly_diff))
-  #The data on individual level will be by-weekly, but the different countries started testing and logging 
-  # information at different times,. i.e. the week start date is different each chosen country
-  
-  aa$Interval <- cut(aa$Weekly_difference_between_datasets, c(0,95,100,105,Inf))
-  
-  aaa <- ggplot(data=aa, aes(x=date, y=Weekly_difference_between_datasets)) + geom_smooth() + geom_point(aes(colour = Interval)) + ggtitle("% Similiarity in datasets")
-  return (aaa + xlab("Date") +ylab("% Similiarity between Crossgov and JHD dataset"))
-  
-  
-  
-}
-
-
-
-
-##########Graphs#########
-
-
-
-graph_dailyConfirmed <- function(df, country){
-  
-  
-  temp_df <- df 
-  #filter(country_name == country)
-  temp_df$average <- ma(temp_df$daily_cases, 7)
-  
-  
-  #Creating graph  
-  graph_cases <- temp_df %>%
-    ggplot(aes(x=date)) +
-    geom_bar(aes(y=daily_cases, text = paste0("New Cases: ", daily_cases, "\nDate: ", date)), stat ="identity", colour = "#DD8888", fill = "#e74c4c", alpha = 0.4) +
-    geom_line(aes(y = average), size = 1.5, colour = "red", alpha = 0.6) +
-    labs (title = paste("Daily Confirmed Cases of Covid19 in", country, sep = " "),
-          x = "Date\n",
-          y = "Confirmed Cases\n") +
-    theme_hc() +
-    theme(axis.title.x =element_blank(),
-          axis.title.y = element_text(size = 16, face = "bold"),
-          plot.title =element_text(hjust = 0.5, face = "bold", size = 16)) +
-    scale_x_date(date_breaks = "months" , date_labels = "%b-%y")
-  
-  
-  ## Creating font for the interactive tooltip
-  interactive_font = list(
-    family = "DM Sans",
-    size = 16,
-    color = "white"
-  )
-  
-  ## Creating the layout for the interactive tooltip
-  interactive_label = list(
-    bgcolor = "#595959",
-    bordercolor = "transparent",
-    font = interactive_font
-  )
-  
-  ##
-  
-  ## Turning graph_cases to an interactive graph
-  interactive_plot <- ggplotly(graph_cases, tooltip = c("text"), layerData = 1) %>% 
-    style(hoverlabel = interactive_label) %>% 
-    layout(font = interactive_font,
-           yaxis = list(fixedrange = TRUE)) %>% 
-    config(displayModeBar = FALSE)
-  
-  
-  
-  return(interactive_plot)
-}
-
-
-graph_dailyDeaths <- function(df, country){
-  
-  
-  temp_df <- df 
-  temp_df$average <- ma(temp_df$daily_deaths, 7)
-  
-  
-  #Creating graph  
-  graph_cases <- temp_df %>%
-    ggplot(aes(x=date)) +
-    geom_bar(aes(y=daily_deaths, text = paste0("New Cases: ", daily_cases, "\nDate: ", date)), stat ="identity", colour = "#DD8888", fill = "#e74c4c", alpha = 0.4) +
-    geom_line(aes(y = average), size = 1.5, colour = "red", alpha = 0.6) +
-    labs (title = paste("Daily Confirmed Deaths of Covid19 in", country, sep = " "),
-          x = "Date\n",
-          y = "Confirmed deaths\n") +
-    theme_hc() +
-    theme(axis.title.x =element_blank(),
-          axis.title.y = element_text(size = 16, face = "bold"),
-          plot.title =element_text(hjust = 0.5, face = "bold", size = 16)) +
-    scale_x_date(date_breaks = "months" , date_labels = "%b-%y")
-  
-  
-  ## Creating font for the interactive tooltip
-  interactive_font = list(
-    family = "DM Sans",
-    size = 16,
-    color = "white"
-  )
-  
-  ## Creating the layout for the interactive tooltip
-  interactive_label = list(
-    bgcolor = "#595959",
-    bordercolor = "transparent",
-    font = interactive_font
-  )
-  
-  ##
-  
-  ## Turning graph_cases to an interactive graph
-  interactive_plot <- ggplotly(graph_cases, tooltip = c("text"), layerData = 1) %>% 
-    style(hoverlabel = interactive_label) %>% 
-    layout(font = interactive_font,
-           yaxis = list(fixedrange = TRUE)) %>% 
-    config(displayModeBar = FALSE)
-  
-  
-  
-  
-  return(interactive_plot)
-}
-
-
-##Top3
-
-
-plotTop3dailyCases <- function(df, title){
-  tempdaily_df <- df %>% 
-    filter(date >= Sys.Date()-8 & date <= Sys.Date()-1)%>%
-    arrange(desc(daily_cases))
-  
-  
-  aggdaily <- aggregate(x = tempdaily_df$daily_cases,
-                        by = list(tempdaily_df$country_name),
-                        FUN = sum)
-  
-  
-  
-  top_3 <- as.vector(aggdaily[["Group.1"]])
-  
-  
-  top3 <- aggdaily %>%
-    filter(Group.1 %in% top_3)%>%
-    rename(country_name= "Group.1")%>%
-    arrange(desc(x))%>%
-    head(3)
-  
-  top <- as.vector(top3[["country_name"]])
-  
-  
-  top3 <- tempdaily_df %>% 
-    filter(country_name %in% top)
-  
-  
-  
-  graph2 = top3 %>% 
-    ggplot(aes(x = date, y = daily_cases, color = country_name)) +
-    geom_line( size = 2, alpha = 0.9) +
-    theme_hc() +
-    labs (title = title,
-          y = "Number of cases",
-          color = "Location:   ") +
-    theme(axis.title.x =element_blank(),
-          plot.title =element_text(hjust = 0.5))
-  
-  return (graph2)
-}
-
-
-
-
-
-
-##########MAP#############
-
-getGlobalConfirmed<- function(df){
-  
-  map_data <- df %>% 
-    filter(date == Sys.Date()-2 ) %>% 
-    mutate(casesPer100k = round(confirmed_cases/population*100000,0),)%>% 
-    select(ID, date, country_name, ID, casesPer100k) %>% 
-    mutate(hover = paste0(country_name, "\n", casesPer100k))
-  
-  return (map_data)
-  
-}
-
-
-getGlobalDeaths<- function(df){
-  
-  map_data <- df %>% 
-    filter(date == Sys.Date()-2) %>% 
-    mutate(casesPer100k = round(confirmed_deaths/population*100000,0),)%>% 
-    select(ID, date, country_name, ID, casesPer100k) %>% 
-    mutate(hover = paste0(country_name, "\n", casesPer100k))
-  
-  return (map_data)
-  
-}
-
-
-
-drawMap <- function(map_data, main_title, colorbar_title){
-  
-  
-  map <- plot_ly(map_data, 
-                 type='choropleth', 
-                 locations=map_data$ID,
-                 z=map_data$casesPer100k, 
-                 zmin=0,
-                 zmax = max(map_data$casesPer100k),
-                 colorscale = list(c(0, 0.1, 0.2,0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1), 
-                                   c(brewer.pal(11,'Spectral'))),
-                 color = map_data$casesPer100k,
-                 text = map_data$hover,
-                 hoverinfo = 'text') %>% 
-    colorbar(title = colorbar_title, len = 0.75) %>% 
-    add_annotations(
-      y=1.05, 
-      x=0.5, 
-      text= main_title, 
-      showarrow=F,
-      font=list(size=15)
-    ) %>% 
-    config(displayModeBar = FALSE)
-  
-  
-  
-  return(map)
-  
-}
-
-
-###Stats for boxes 
-
-
-
-#Returns total number of deaths in the dataset
-totalDeaths <-function(df){
-  df <- df %>% filter(date == Sys.Date() -2) 
-  number(sum(df$confirmed_deaths),
-         big.mark = " ")
-}
-
-#Returns total number of confirmed cases in the dataset
-totalConfirmed <- function(df){
-  
-  df <- df %>% filter(date == Sys.Date() -2) 
-  number(sum(df$confirmed_cases), big.mark = " ")
-}
-
-#Return total number of tests in the dataset
-totalTested <- function(df){
-  df <- df %>% filter(date == Sys.Date() -2) 
-  number(sum(df$tests), big.mark = " ")
-}
-
-
-# casesnor <- function(df){
-#   numb <- df$confirmed_cases[df$date== Sys.Date()-2]
-#   return(number(numb,big.mark = " ") )
-# }
-
-casesmonth <- function(df){
-  numb <- df$daily_cases[df$date >= Sys.Date()-31 & df$date <= Sys.Date()-1]
-  return(number(sum(numb), big.mark = " "))
-}
-
-casesweek <- function(df){
-  numb <- df$daily_cases[df$date >= Sys.Date()-8 & df$date <= Sys.Date()-1]
-  return(number(sum(numb), big.mark = " "))
-}
-
-
-
-
-
-
 #####Server######
 server <- function(input, output) {
   
@@ -827,7 +819,7 @@ server <- function(input, output) {
       data <- data_graphNorway()
       graph_dailyConfirmed(data,input$Municipality)
     }else{
-      plotTop3dailyCases(norway, "The 3 municipalities in Norway with the highest number of cases the last week\n")
+      plotTop3dailyCases(norway, "Top 3 municipalities with the highest number of cases in the last week")
     }
     
   })
