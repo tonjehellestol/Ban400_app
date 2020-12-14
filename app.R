@@ -147,7 +147,7 @@ ui <- fluidPage(
                       fluidRow(column(width=3),
                                #column(width=1),
                                column(br(),
-                                      strong(p("Number of deaths:")), 
+                                      strong(p("Total confirmed number of deaths:")), 
                                       textOutput("death"),
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
@@ -161,7 +161,7 @@ ui <- fluidPage(
                                column(widt=2),
                                
                                column(br(),
-                                      strong(p("Reported number of tests:")), 
+                                      strong(p("Total reported number of tests:")), 
                                       textOutput("lastweek"),
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
@@ -216,22 +216,22 @@ ui <- fluidPage(
                       fluidRow(column(width=3),
                                #column(width=1),
                                column(br(),
-                                      strong(p("Number of deaths:")), 
-                                      textOutput("deathnor"),
+                                      strong(p("Total confirmed cases:")), 
+                                      textOutput("casesnorway"),
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
                                column(widt=4),
                                column(br(),
-                                      strong(p("Total confirmed cases:")), 
-                                      textOutput("TCCnor"),
+                                      strong(p("Total confirmed cases the last 30 days:")), 
+                                      textOutput("ccmonth"),
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
                                br(),
                                column(widt=2),
                                
                                column(br(),
-                                      strong(p("Last week:")), 
-                                      textOutput("lastweeknor"),
+                                      strong(p("Total confirmed cases the last 7 days:")), 
+                                      textOutput("ccweek"),
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
                       ),
@@ -561,6 +561,22 @@ totalTested <- function(df){
 }
 
 
+# casesnor <- function(df){
+#   numb <- df$confirmed_cases[df$date== Sys.Date()-2]
+#   return(number(numb,big.mark = " ") )
+# }
+
+casesmonth <- function(df){
+  numb <- df$daily_cases[df$date >= Sys.Date()-31 & df$date <= Sys.Date()-1]
+  return(number(sum(numb), big.mark = " "))
+}
+
+casesweek <- function(df){
+  numb <- df$daily_cases[df$date >= Sys.Date()-8 & df$date <= Sys.Date()-1]
+  return(number(sum(numb), big.mark = " "))
+}
+
+
 
 
 
@@ -569,7 +585,7 @@ totalTested <- function(df){
 server <- function(input, output) {
   
   
-  ##GLOBAL
+  ######GLOBAL########
   
   data_graph = reactive({
     Crossgovsources_df %>% mutate(date = as.Date(date)) %>% 
@@ -609,7 +625,7 @@ server <- function(input, output) {
       totalDeaths(Crossgovsources_df)
     }
     
-   }) #legg inn fnavn p?? unksjon for antall d??de
+   }) 
   
   
   output$TCC <- renderText({
@@ -631,15 +647,17 @@ server <- function(input, output) {
     }) 
   
   
-  ##NORWAY
+  ######Norway########
   
+  
+  #Retriving data
   data_graphNorway = reactive({
     norway %>% mutate(date = as.Date(date)) %>% 
       filter(country_name == input$Municipality , date >= input$dates[1] & date <=input$dates[2] )
   })
   
  
-  
+  #Plot
    output$PlotNor <- renderPlotly({
 
     if(input$PlotTypeNorway == 'Graph'){
@@ -651,18 +669,28 @@ server <- function(input, output) {
 
     })
 
-    
-    
-  #})
   
-  
-
- 
-  
-  output$deathnor <- renderPrint({}) #legg inn funksjon for antall d??de
-  output$TCCnor <- renderPrint({p("10")}) 
-  output$lastweeknor <- renderPrint({p("100")}) 
-  
+   output$casesnorway <- renderText({
+     if (input$PlotTypeNorway == 'Graph'){
+       totalConfirmed(data_graphNorway())
+       
+     }else{
+       totalConfirmed(norway)
+     }})
+   output$ccmonth <- renderText({
+     if (input$PlotTypeNorway == 'Graph'){
+        casesmonth(data_graphNorway())
+       }else{
+         casesmonth(norway)
+       }})
+   output$ccweek <- renderText({
+     if(input$PlotTypeNorway == 'Graph'){
+       casesweek(data_graphNorway())
+     }else{
+       casesweek(norway)
+       
+     }})
+   
   #Output for the diagnostics tab
   #det g??r ikke an ?? ha samme output for begge faner, da funker ikke conditionalpanel
   output$tsnorway <- renderPrint({p("The difference between the data is ... farge her?",
