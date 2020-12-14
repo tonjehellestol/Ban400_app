@@ -1,7 +1,7 @@
 #----------------------------------------------------------------------
 #BAN400 - Introduction to R
 #December 2020
-#Candidates: 71, XX, XX and XX
+#Candidates: 71, 78, 79 and 45
 #----------------------------------------------------------------------
 #References:
 #Covid19.analytics package:
