@@ -1,6 +1,6 @@
 #----------------------------------------------------------------------
-  #BAN400 - Introduction to R
-  #September 2020
+#BAN400 - Introduction to R
+#September 2020
 #----------------------------------------------------------------------
 #References:
 #Covid19.analytics package:
@@ -43,6 +43,9 @@ library(forecast)
 library(zoo)
 library(stringr)
 library(lubridate)
+library(tidyquant)
+
+
 
 
 
@@ -118,6 +121,71 @@ norway <- norway %>%
 #Creating a dataset for the statistics and one for the municipalities 
 
 kommune <- norway %>% select("country_name")
+
+
+
+##Retriving data to compare crossgov with
+
+JHD_df_cleaning <- function(df, case_type){
+  df %>% 
+    group_by(Country.Region) %>% 
+    select(-"Province.State", - "Lat", - "Long") %>% 
+    mutate_at(vars(-group_cols()), sum) %>% 
+    distinct() %>% 
+    pivot_longer(cols = colnames(.)[-(1:1)], 
+                 names_to = "date",  
+                 values_to = case_type)
+}
+
+JHD_df_confirmed <- JHD_df_cleaning(covid19.data("TS-confirmed"), "confirmed_cases")
+
+JHD_df_deaths <- JHD_df_cleaning(covid19.data("TS-deaths"), "confirmed_deaths")
+
+JHD_df_full <- JHD_df_confirmed %>% 
+  full_join(JHD_df_deaths) %>% 
+  rename(country_name = Country.Region) %>% 
+  mutate(date=as.Date(date, format = "%Y-%m-%d"), country_name = as.character(country_name)) %>% 
+  mutate(daily_cases = c(0,diff(confirmed_cases)), daily_deaths = c(0,diff(confirmed_deaths)))
+
+# Gone through all the country names and numbers to manually change
+# the names between them 
+
+#American Samoa,Bermuda, Costa Atlantica, Grand Princess, Guam, Northern Mariana Islands, 
+#Puerto Rico, Virgin Islands, U.S. not in JHD-dataset. So no difference in these countries. 
+
+JHD_df_full$country_name[which(JHD_df_full$country_name  == "US")] <- "United States"
+JHD_df_full$country_name[which(JHD_df_full$country_name  == "Cabo Verde")] <- "Cape Verde"
+JHD_df_full$country_name[which(JHD_df_full$country_name  == "Czechia")] <- "Czech Republic"
+JHD_df_full$country_name[which(JHD_df_full$country_name  == "Burma")] <- "Myanmar"
+JHD_df_full$country_name[which(JHD_df_full$country_name  == "Taiwan*")] <- "Taiwan"
+JHD_df_full$country_name[which(JHD_df_full$country_name  == "West Bank and Gaza")] <- "Palestine"
+JHD_df_full$country_name[which(JHD_df_full$country_name  == "Eswatini")] <- "Swaziland"
+Crossgovsources_df$country_name[which(Crossgovsources_df$country_name  == "Congo")] <- "Congo (Brazzaville)"
+Crossgovsources_df$country_name[which(Crossgovsources_df$country_name  == "Congo, the Democratic Republic of the")] <- "Congo (Kinshasa)"
+
+#Changed the names of the following to get correct entry;
+#crossgov - Swaziland = Eswatini in JHD
+#crossgov - Palestine = West Bank and Gaza in JHD
+#crossgov - Taiwan = 	Taiwan* in JHD
+#crossgov - Myanmar = Burma in JHD 
+#crossgov - Czech Republic = Czechia in JHD
+#crossgov - Cape Verde = 	Cabo Verde in JHD
+#crossgov  - Congo = Congo (Brazzaville) in JHD
+#crossgov - Congo, the Democratic Republic of the = Congo (Kinshasa) in JHD
+
+
+JHD_df_full$confirmed_cases_JHD     <-JHD_df_full$confirmed_cases  
+JHD_df_full$confirmed_deaths_JHD    <-JHD_df_full$confirmed_deaths
+JHD_df_full$daily_cases_JHD         <-JHD_df_full$daily_cases
+JHD_df_full$daily_deaths_JHD        <-JHD_df_full$daily_deaths
+Crossgovsources_df$confirmed_cases_CG  <-Crossgovsources_df$confirmed_cases  
+Crossgovsources_df$confirmed_deaths_CG <-Crossgovsources_df$confirmed_deaths
+Crossgovsources_df$daily_cases_CG      <-Crossgovsources_df$daily_cases
+Crossgovsources_df$daily_deaths_CG     <-Crossgovsources_df$daily_deaths
+
+difference_jhd_cgov <- merge(JHD_df_full, Crossgovsources_df, by=c("date","country_name"), all.x = TRUE, all.y = TRUE)
+
+
 
 
 
@@ -224,8 +292,8 @@ ui <- fluidPage(
                         verbatimTextOutput('text2'),
                         width = 5)
                       ),
-                     
-                     
+                      
+                      
                       hr(),
                       
                       fluidRow(column(width=3),
@@ -291,15 +359,14 @@ ui <- fluidPage(
                       mainPanel(
                         h3(p(strong('Diagnostics',style="color:salmon")),align="center"),
                         column(htmlOutput("TextDiagnostic"),width = 12,style="border:1px solid black"),
+                        column(br(), plotOutput("plotDiagnostic"),width = 12),
                       ),
                       hr(),
                       
                       fluidRow(column(width=3),
                                column(br(),
-                                      p("La inn denne dersom vi skal skrive en forklaring, og for ?? f?? litt luft p?? siden.
-                                        G??r ikke an ?? f?? space under grafen uten denne",style="color:black"),
                                       textOutput("noe?"),
-                                      width=9,style="background-color:lightyellow;border-radius: 10px",
+                                      width=9,style="background-color:white;border-radius: 10px",
                                ),
                                
                                br(),
@@ -340,8 +407,8 @@ accumulative_test <- function(df, group, column="cases", short = FALSE){
   } else if (n!=0 & short == TRUE){
     result <- paste("***Accumulative Test FAILED**<br/>There have been ", n, " instances where accumulative values have decreased in ", group,
                     "<br/>To view full diagnostic, go to the diagnostic page and chose current input", sep="")
-
-    }else {
+    
+  }else {
     result <- paste("***Accumulative Test FAILED***<br/>There have been", n, "instances where accumulative values have decreased in", group,
                     "<br/>This might be due to correction of quantity registered, although this is not certain.",
                     "<br/>The dates this happened are postet below:<br/>",sep = " ")
@@ -359,6 +426,61 @@ accumulative_test <- function(df, group, column="cases", short = FALSE){
 
 
 
+###Testing if there exist differences between crossgov and JHU datasets, both containing global data 
+getDifference_datasets<- function(data,type,country_name_input){
+  
+  data <- difference_jhd_cgov
+  df_2 <- data
+  difference_jhd_cgov_ <- df_2 %>% filter(country_name == country_name_input)
+  difference_jhd_cgov_$date <- as.Date(difference_jhd_cgov_$date)
+  
+  # Sorting first by country, then date <- ascending 
+  difference_jhd_cgov_ <- difference_jhd_cgov_[order(difference_jhd_cgov_[,2], difference_jhd_cgov_[,1] ),]
+  difference_jhd_cgov_$confirmed_cases_JHD[is.na(difference_jhd_cgov_$confirmed_cases_JHD)] <- 0
+  difference_jhd_cgov_$confirmed_deaths_JHD[is.na(difference_jhd_cgov_$confirmed_deaths_JHD)] <- 0
+  if(type == "Cases") {
+    
+    difference_jhd_cgov_1 <- difference_jhd_cgov_ %>% 
+      mutate(sum_confirmed_cases_JHD = (confirmed_cases_JHD),
+             sum_confirmed_cases_CG = (confirmed_cases_CG))
+    difference_jhd_cgov_1$difference_from_Cgov <- ifelse(is.na(difference_jhd_cgov_1$sum_confirmed_cases_JHD),1,ifelse(is.na(difference_jhd_cgov_1$sum_confirmed_cases_CG),1,ifelse(difference_jhd_cgov_1$sum_confirmed_cases_JHD == 0,1,ifelse(difference_jhd_cgov_1$sum_confirmed_cases_CG==0,1,difference_jhd_cgov_1$sum_confirmed_cases_CG/difference_jhd_cgov_1$sum_confirmed_cases_JHD))))
+    print("Finding number of confirmed cases similarity in datasets!")
+    
+  }
+  if(type == "Deaths") {
+    
+    difference_jhd_cgov_1 <- difference_jhd_cgov_ %>% 
+      mutate(sum_confirmed_deaths_JHD = (confirmed_deaths_JHD),
+             sum_confirmed_deaths_CG = (confirmed_deaths_CG)) 
+    difference_jhd_cgov_1$difference_from_Cgov <- ifelse(is.na(difference_jhd_cgov_1$sum_confirmed_deaths_JHD),1,ifelse(is.na(difference_jhd_cgov_1$sum_confirmed_deaths_CG),1,ifelse(difference_jhd_cgov_1$sum_confirmed_deaths_JHD == 0,1,ifelse(difference_jhd_cgov_1$sum_confirmed_deaths_CG==0,1,difference_jhd_cgov_1$sum_confirmed_deaths_CG/difference_jhd_cgov_1$sum_confirmed_deaths_JHD))))
+    print("Finding number of confirmed deaths similarity in datasets!")
+    
+  }
+  #install.packages("tidyquant")
+  library(tidyquant)
+  weekly_diff <- difference_jhd_cgov_1 %>%
+    tq_transmute(select     = difference_from_Cgov,
+                 mutate_fun = apply.weekly,
+                 FUN        = sum)
+  #unique(diff_datasets$difference_from_Cgov)
+  weekly_diff$aggregate_weekly_diff <- 100*weekly_diff$difference_from_Cgov/7
+  
+  aa <- weekly_diff %>% group_by(date) %>% summarise(Weekly_difference_between_datasets = mean(aggregate_weekly_diff))
+  #The data on individual level will be by-weekly, but the different countries started testing and logging 
+  # information at different times,. i.e. the week start date is different each chosen country
+  
+  aa$Interval <- cut(aa$Weekly_difference_between_datasets, c(0,95,100,105,Inf))
+  
+  aaa <- ggplot(data=aa, aes(x=date, y=Weekly_difference_between_datasets)) + geom_smooth() + geom_point(aes(colour = Interval)) + ggtitle("% Similiarity in datasets")
+  return (aaa + xlab("Date") +ylab("% Similiarity between Crossgov and JHD dataset"))
+  
+  
+  
+}
+
+
+
+
 ##########Graphs#########
 
 
@@ -367,7 +489,7 @@ graph_dailyConfirmed <- function(df, country){
   
   
   temp_df <- df 
-    #filter(country_name == country)
+  #filter(country_name == country)
   temp_df$average <- ma(temp_df$daily_cases, 7)
   
   
@@ -547,7 +669,7 @@ getGlobalDeaths<- function(df){
 
 
 drawMap <- function(map_data, main_title, colorbar_title){
-
+  
   
   map <- plot_ly(map_data, 
                  type='choropleth', 
@@ -569,7 +691,7 @@ drawMap <- function(map_data, main_title, colorbar_title){
       font=list(size=15)
     ) %>% 
     config(displayModeBar = FALSE)
-   
+  
   
   
   return(map)
@@ -666,7 +788,7 @@ server <- function(input, output) {
       totalDeaths(Crossgovsources_df)
     }
     
-   }) 
+  }) 
   
   
   output$TCC <- renderText({
@@ -676,7 +798,7 @@ server <- function(input, output) {
     }else{
       totalConfirmed(Crossgovsources_df)
     }
-    })
+  })
   output$ntests <- renderText({
     if (input$PlotType == 'Graph'){
       totalTested(data_graph())
@@ -685,7 +807,7 @@ server <- function(input, output) {
       totalTested(Crossgovsources_df)
     }
     
-    }) 
+  }) 
   
   
   ######Norway########
@@ -697,56 +819,56 @@ server <- function(input, output) {
       filter(country_name == input$Municipality , date >= input$datesNor[1] & date <=input$datesNor[2] )
   })
   
- 
+  
   #Plot
-   output$PlotNor <- renderPlotly({
-
+  output$PlotNor <- renderPlotly({
+    
     if(input$PlotTypeNorway == 'Graph'){
       data <- data_graphNorway()
       graph_dailyConfirmed(data,input$Municipality)
     }else{
       plotTop3dailyCases(norway, "The 3 municipalities in Norway with the highest number of cases the last week\n")
     }
-
-    })
-
+    
+  })
   
-   output$casesnorway <- renderText({
-     if (input$PlotTypeNorway == 'Graph'){
-       totalConfirmed(data_graphNorway())
-       
-     }else{
-       totalConfirmed(norway)
-     }})
-   output$ccmonth <- renderText({
-     if (input$PlotTypeNorway == 'Graph'){
-        casesmonth(data_graphNorway())
-       }else{
-         casesmonth(norway)
-       }})
-   output$ccweek <- renderText({
-     if(input$PlotTypeNorway == 'Graph'){
-       casesweek(data_graphNorway())
-     }else{
-       casesweek(norway)
-       
-     }})
-   
- 
-
+  
+  output$casesnorway <- renderText({
+    if (input$PlotTypeNorway == 'Graph'){
+      totalConfirmed(data_graphNorway())
+      
+    }else{
+      totalConfirmed(norway)
+    }})
+  output$ccmonth <- renderText({
+    if (input$PlotTypeNorway == 'Graph'){
+      casesmonth(data_graphNorway())
+    }else{
+      casesmonth(norway)
+    }})
+  output$ccweek <- renderText({
+    if(input$PlotTypeNorway == 'Graph'){
+      casesweek(data_graphNorway())
+    }else{
+      casesweek(norway)
+      
+    }})
+  
+  
+  
   #Short output for diagnostics
   output$tsnorway <- renderText({
     if(input$PlotTypeNorway == 'Graph'){
-    HTML(paste(accumulative_test(norway, input$Municipality, column = "cases", short = TRUE)))
+      HTML(paste(accumulative_test(norway, input$Municipality, column = "cases", short = TRUE)))
     }else{
       HTML(paste("Chose  'graph' and a municipality to examine the data in more details."))
     }
-    }) 
+  }) 
   
   
   output$tsglobal <- renderText({
     if(input$PlotType == 'Graph'){
-    HTML(paste(accumulative_test(Crossgovsources_df, input$Country, tolower(input$Stat), short = TRUE)))
+      HTML(paste(accumulative_test(Crossgovsources_df, input$Country, tolower(input$Stat), short = TRUE)))
     }else{
       HTML(paste("Chose 'graph' and a country to examine the data in more details."))
     }
@@ -763,9 +885,15 @@ server <- function(input, output) {
     }
   })
   
+  output$plotDiagnostic <- renderPlot({
+    if(input$dataset == "Global"){
+      getDifference_datasets(difference_jhd_cgov,input$statDiagnostic, input$countryDiagnostic)
+      
+    }})
+  
+  
+  
   
 }
 
 shinyApp(ui = ui, server = server)
-
-
