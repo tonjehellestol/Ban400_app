@@ -123,13 +123,14 @@ kommune <- norway %>% select("country_name")
 
 
 #---------------------------------- UI ----------------------------------#
+#User interface - the users choices
 ui <- fluidPage( 
   titlePanel(
     img(src = "https://www.siv.no/PublishingImages/Nyheter/Praksisnytt/Koronavirus.png?RenditionID=3", height = "200px", width = "99.9%")
   ), #collects image from specified webpage
   #Source: https://shiny.rstudio.com/tutorial/written-tutorial/lesson2/
-  navbarPage("COVID-19 Statistics",
-             tabPanel("Global", icon=icon("home"),
+  navbarPage("COVID-19 Statistics", #Titletab
+             tabPanel("Global", icon=icon("home"), #First tab
                       sidebarPanel(
                         helpText("Select", em("Cases"), "or", em("Deaths"), "and a country to examine.
                
@@ -138,7 +139,7 @@ ui <- fluidPage(
                         selectInput('Stat', 'Data:', c('Cases', 'Deaths')), #Select data type 
                         selectInput('PlotType', 'Data Visualization:', c('Map', 'Graph')), #Select the data visualization
                         
-                        #will only show this panel if the data visualization chosen is "Graph"
+                        #This panel will only show if the data visualization chosen is "Graph"
                         conditionalPanel(
                           condition = "input.PlotType == 'Graph'", 
                           selectInput('Country', 'Country', countries, selected = countries[1]), #Select country 
@@ -157,17 +158,19 @@ ui <- fluidPage(
                       
                       hr(),
                       
+                      #Textboxes below the mainplot
+                      #Inspiration from https://github.com/RiveraDaniel/Regression/blob/master/ui.R
                       fluidRow(column(width=3),
                                #column(width=1),
                                column(br(),
-                                      strong(p("Total confirmed number of deaths:")), 
-                                      textOutput("death"),
-                                      br(),
+                                      strong(p("Total confirmed number of deaths:")), #Bold text
+                                      textOutput("death"), #Prints number of deaths globally/ for a chosen country
+                                      br(), #Space
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
                                column(widt=4),
                                column(br(),
                                       strong(p("Total confirmed cases:")), 
-                                      textOutput("TCC"),
+                                      textOutput("TCC"), #Prints total confirmed cases globally/ for a chosen country
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
                                br(),
@@ -175,7 +178,7 @@ ui <- fluidPage(
                                
                                column(br(),
                                       strong(p("Total reported number of tests:")), 
-                                      textOutput("lastweek"),
+                                      textOutput("ntests"), #Prints total reported number of tests globally/ for a chosen country
                                       br(),
                                       width = 3,style="background-color:	lightgray;border-left:6px solid gray;border-top: 1px solid black;border-right:1px solid black;border-bottom: 1px solid black"),
                       ),
@@ -183,9 +186,10 @@ ui <- fluidPage(
                       br(),
                       br(),
                       
+                      #A column for teststatus
                       fluidRow(column(width=3),
                                column(br(),
-                                      htmlOutput("tsglobal"),
+                                      htmlOutput("tsglobal"), #Prints the appropriate teststatus 
                                       width=9,style="background-color:lightyellow;border-radius: 10px",
                                ),
                                br(),
@@ -203,7 +207,6 @@ ui <- fluidPage(
                         selectInput('PlotTypeNorway', 'Data Visualization:', c('Top 3', 'Graph')),
                         
                         #will only show this panel if the data visualization chosen is "Graph"
-                        #denne funker ikke f??r den er lagt inn i serveren, den m?? hete noe annet enn Graph, ellers responderer den p?? global fanen
                         conditionalPanel(
                           condition = "input.PlotTypeNorway == 'Graph'", 
                           selectInput('Municipality', 'Municipality',unique( kommune), selected = 'Bergen'), 
@@ -674,7 +677,7 @@ server <- function(input, output) {
       totalConfirmed(Crossgovsources_df)
     }
     })
-  output$lastweek <- renderText({
+  output$ntests <- renderText({
     if (input$PlotType == 'Graph'){
       totalTested(data_graph())
       
