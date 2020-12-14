@@ -308,7 +308,7 @@ getDifference_datasets<- function(data,type,country_name_input){
 
 
 
-##########Graphs#########
+##########Graphs##########
 
 
 graph_dailyConfirmed <- function(df, country){
